@@ -1,0 +1,8 @@
+mode = "console"
+script = "somescript"
+scriptdir = "some dir"
+
+[graphite]
+  host = "localhost"
+  interval = 3
+  port = 1213
