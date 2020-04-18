@@ -36,9 +36,16 @@ func init() {
 	flags.StringP("config", "c", DefaultConfigPath, "config file path")
 	flags.StringP("mode", "m", "", `run modes, choices are "console", "filetail", "udp", "tcp"'`)
 	flags.StringP("script.file", "f", "", "lua script file path")
-	flags.StringP("script.dir", "d", "", "lua script dir path")
+	flags.StringP("script.dir", "d", "", "lua scripts directory")
 	flags.StringP("logging.level", "", "info", "logging level")
 	flags.StringP("logging.type", "", "console", `logging type, choices are "syslog", "console"`)
+	flags.StringP("udp.port", "", "", "udp server listening port")
+	flags.StringP("udp.host", "", "", "udp server listening host")
+	flags.StringP("tcp.host", "", "", "tcp server listening host")
+	flags.StringP("tcp.port", "", "", "tcp server listening port")
+	flags.StringP("graphite.host", "", "", "graphite server host")
+	flags.StringP("graphite.port", "", "", "graphite server port")
+	flags.StringP("graphite.interval", "", "", "interval in secs")
 
 	_ = viper.BindPFlag("config", flags.Lookup("config"))
 	_ = viper.BindPFlag("mode", flags.Lookup("mode"))
@@ -46,6 +53,13 @@ func init() {
 	_ = viper.BindPFlag("scriptdir", flags.Lookup("script.dir"))
 	_ = viper.BindPFlag("logging.level", flags.Lookup("logging.level"))
 	_ = viper.BindPFlag("logging.type", flags.Lookup("logging.type"))
+	_ = viper.BindPFlag("udp.port", flags.Lookup("udp.port"))
+	_ = viper.BindPFlag("udp.host", flags.Lookup("udp.host"))
+	_ = viper.BindPFlag("tcp.port", flags.Lookup("tcp.port"))
+	_ = viper.BindPFlag("tcp.host", flags.Lookup("tcp.host"))
+	_ = viper.BindPFlag("graphite.host", flags.Lookup("graphite.host"))
+	_ = viper.BindPFlag("graphite.port", flags.Lookup("graphite.port"))
+	_ = viper.BindPFlag("graphite.interval", flags.Lookup("graphite.interval"))
 
 	cobra.OnInitialize(func() {
 		viper.SetConfigFile(viper.GetString("config"))
@@ -65,12 +79,14 @@ func run() error {
 	case "console":
 		return runConsole(config)
 	case "filetail":
+		return fmt.Errorf("not implemented yet")
 	case "udp":
+		return fmt.Errorf("not implemented yet")
 	case "tcp":
+		return fmt.Errorf("not implemented yet")
 	default:
 		return fmt.Errorf(`invalid application mode. Choices are "console", "filetail", "tcp", "udp" `)
 	}
-	return nil
 }
 
 func scripts(config *config.Configuration) ([]string, error) {

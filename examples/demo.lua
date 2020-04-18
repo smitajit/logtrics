@@ -1,5 +1,5 @@
 -- script global variables can be defined here
-local prefix = "security.citadel.minutely.something"
+-- local prefix = ""
 logtrics {
 	-- optional --
 	-- can be used to override graphite configuration
@@ -10,7 +10,7 @@ logtrics {
 	expression = ".*",
 	process = function(source , param1 , param2 , param3)
 		local r = math.random(1,10)
-		debug("before process. source: %s, param1: %s\n" , source , param1)
+		debug("process -> source: %s, param1: %s\n" , source , param1)
 		-- graphite().counter(prefix).increment(r)
 		end,
 }

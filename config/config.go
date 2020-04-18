@@ -24,7 +24,19 @@ type (
 		ScriptFile string    `toml:"scriptfile"`
 		ScriptDir  string    `toml:"scriptdir"`
 		Graphite   *Graphite `toml:"graphite"`
+		Udp        *Udp      `toml:"udp"`
+		Tcp        *Tcp      `toml:"tcp"`
 		Logging    *Logging  `toml:"logging"`
+	}
+
+	Udp struct {
+		Host string `toml:"host"`
+		Port int    `toml:"port"`
+	}
+
+	Tcp struct {
+		Host string `toml:"host"`
+		Port int    `toml:"port"`
 	}
 
 	Logging struct {
