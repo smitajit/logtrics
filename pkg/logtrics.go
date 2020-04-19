@@ -45,7 +45,7 @@ func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
 		Protect: true,
 	}
 
-	args := []string{event.Source}
+	args := []string{event.Source, event.Line}
 	substrings, ok := l.parser.FindSubStrings(event.Line)
 	if !ok {
 		// TODO log maybe?

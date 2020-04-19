@@ -25,6 +25,9 @@ Flags:
 ```lua
 -- script global variables can be defined here
 -- local prefix = ""
+
+-- logtrics instance to configure log parsing logic --
+-- multiple logtrics instances can be configured in same script --
 logtrics {
 	-- optional --
 	-- can be used to override graphite configuration
@@ -32,11 +35,31 @@ logtrics {
 		-- host = "127.0.0.1",
 		-- port = 8080
 	-- },
+
+	-- supports RE2 (https://en.wikipedia.org/wiki/RE2_(software)) regex for matching and substring extraction ---
+	-- source, matched line and extracted substrings will be passed for process callback for metrics computation --
 	expression = ".*",
-	process = function(source , param1 , param2 , param3)
+
+	-- this callback function will be called for log line match based on the expression. ---
+	-- @source : source of the log. e.g, console, upd:{host:port} ... ---
+	-- @line : the log line ---
+	-- @... : the substring matched by the regular expression ---
+	process = function(source, line,  params, ...)
 		local r = math.random(1,10)
-		debug("process -> source: %s, param1: %s\n" , source , param1)
+		debug("lua: processing log line [%s] from source [%s]" , line , source)
 		-- graphite().counter(prefix).increment(r)
 		end,
 }
+```
+### RUN
+* UDP
+```
+make
+./logtrics -m udp -f examples/demo.lua --logging.level debug --udp.port 3002 --udp.host localhost
+```
+
+* Console
+```bash
+make
+./logtrics -m console -f examples/demo.lua --logging.level debug
 ```

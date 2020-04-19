@@ -5,7 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"strings"
+
+	"github.com/smitajit/logtrics/config"
 )
 
 var (
@@ -41,6 +45,11 @@ type (
 		io.Writer
 		io.Reader
 	}
+
+	// UDP represents the log reader in UDP server mode
+	UDP struct {
+		config *config.Udp
+	}
 )
 
 // NewConsole returns a new Console runner instance
@@ -64,6 +73,37 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 				continue
 			}
 			cb(LogEvent{"console", line, nil})
+		}
+	}
+}
+
+func NewUDP(config *config.Configuration) LogReader {
+	return &UDP{config.Udp}
+}
+
+func (s *UDP) Start(ctx context.Context, cb ReadCallBackFun) error {
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{
+		Port: s.config.Port,
+		IP:   net.ParseIP(s.config.Host),
+	})
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	fmt.Printf("server listening %s\n", conn.LocalAddr().String())
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			message := make([]byte, 1024)
+			rlen, remote, err := conn.ReadFromUDP(message[:])
+			if err != nil {
+				cb(LogEvent{fmt.Sprintf("UDP:%s", remote), "", err})
+			}
+			line := strings.TrimSpace(string(message[:rlen]))
+			cb(LogEvent{fmt.Sprintf("UDP:%s", remote), line, nil})
 		}
 	}
 }

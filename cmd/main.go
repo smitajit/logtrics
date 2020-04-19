@@ -35,17 +35,22 @@ func init() {
 
 	flags.StringP("config", "c", DefaultConfigPath, "config file path")
 	flags.StringP("mode", "m", "", `run modes, choices are "console", "filetail", "udp", "tcp"'`)
+
 	flags.StringP("script.file", "f", "", "lua script file path")
 	flags.StringP("script.dir", "d", "", "lua scripts directory")
+
 	flags.StringP("logging.level", "", "info", "logging level")
 	flags.StringP("logging.type", "", "console", `logging type, choices are "syslog", "console"`)
-	flags.StringP("udp.port", "", "", "udp server listening port")
-	flags.StringP("udp.host", "", "", "udp server listening host")
-	flags.StringP("tcp.host", "", "", "tcp server listening host")
-	flags.StringP("tcp.port", "", "", "tcp server listening port")
-	flags.StringP("graphite.host", "", "", "graphite server host")
-	flags.StringP("graphite.port", "", "", "graphite server port")
-	flags.StringP("graphite.interval", "", "", "interval in secs")
+
+	flags.String("udp.host", "", "udp server listening host")
+	flags.Int("udp.port", 0, "udp server listening port")
+
+	flags.String("tcp.host", "", "tcp server listening host")
+	flags.Int("tcp.port", 0, "tcp server listening port")
+
+	flags.String("graphite.host", "", "graphite server host")
+	flags.Int("graphite.port", 0, "graphite server port")
+	flags.Int("graphite.interval", 0, "interval in secs")
 
 	_ = viper.BindPFlag("config", flags.Lookup("config"))
 	_ = viper.BindPFlag("mode", flags.Lookup("mode"))
@@ -74,14 +79,13 @@ func run() error {
 	if err := viper.Unmarshal(config); err != nil {
 		return err
 	}
-	fmt.Printf("the config is %+v\n", config)
 	switch config.Mode {
 	case "console":
 		return runConsole(config)
 	case "filetail":
 		return fmt.Errorf("not implemented yet")
 	case "udp":
-		return fmt.Errorf("not implemented yet")
+		return runUDP(config)
 	case "tcp":
 		return fmt.Errorf("not implemented yet")
 	default:
@@ -123,9 +127,27 @@ func runConsole(config *config.Configuration) error {
 	return nil
 }
 
+func runUDP(config *config.Configuration) error {
+	scripts, err := scripts(config)
+	if nil != err {
+		return errors.Wrap(err, "failed to get the scripts")
+	}
+	if len(scripts) == 0 {
+		return fmt.Errorf("no scripts found")
+	}
+	reader := reader.NewUDP(config)
+	app, err := pkg.NewApp(config, reader, scripts...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := app.Start(true); err != nil {
+		log.Fatal(err)
+	}
+	return nil
+}
+
 func main() {
 	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }
