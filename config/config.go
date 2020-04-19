@@ -18,33 +18,36 @@ var (
 )
 
 type (
-	// Configuration represents the configuration of the service
+	// Configuration represents the application's configuration
 	Configuration struct {
 		Mode       string    `toml:"mode"`
 		ScriptFile string    `toml:"scriptfile"`
 		ScriptDir  string    `toml:"scriptdir"`
 		Graphite   *Graphite `toml:"graphite"`
-		Udp        *Udp      `toml:"udp"`
-		Tcp        *Tcp      `toml:"tcp"`
+		UDP        *UDP      `toml:"udp"`
+		TCP        *TCP      `toml:"tcp"`
 		Logging    *Logging  `toml:"logging"`
 	}
 
-	Udp struct {
+	// UDP configuration
+	UDP struct {
 		Host string `toml:"host"`
 		Port int    `toml:"port"`
 	}
 
-	Tcp struct {
+	// TCP configuration
+	TCP struct {
 		Host string `toml:"host"`
 		Port int    `toml:"port"`
 	}
 
+	// Logging configuration
 	Logging struct {
 		Type  string `toml:"type"`
 		Level string `toml:"level"`
 	}
 
-	// Graphite represents the application's graphite configuration
+	// Graphite configuration
 	Graphite struct {
 		Host     string `toml:"host"`
 		Port     int    `toml:"port"`
@@ -52,6 +55,7 @@ type (
 	}
 )
 
+// Logger returns the application logger
 func (c *Configuration) Logger(unit string) (logger zerolog.Logger) {
 	level := lvlMap[c.Logging.Level]
 	switch {

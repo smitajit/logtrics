@@ -17,10 +17,10 @@ var (
 	ConsoleReaderPrompt = " logtrics > "
 
 	// ConsoleReaderHelp is the help text:w
-	ConsoleReaderHelp = `enter the log line by line
-..............
-Help text goes here
-..............
+	ConsoleReaderHelp = `
+........................................................................................
+Console reader help text goes here
+........................................................................................
 `
 )
 
@@ -48,7 +48,7 @@ type (
 
 	// UDP represents the log reader in UDP server mode
 	UDP struct {
-		config *config.Udp
+		config *config.UDP
 	}
 )
 
@@ -59,7 +59,7 @@ func NewConsole() LogReader {
 
 // Start the reader in console mode
 func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(c.Reader)
 	fmt.Fprintln(c, ConsoleReaderHelp)
 	for {
 		select {
@@ -77,10 +77,12 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 	}
 }
 
+// NewUDP returns a new UDP server mode reader
 func NewUDP(config *config.Configuration) LogReader {
-	return &UDP{config.Udp}
+	return &UDP{config.UDP}
 }
 
+// Start starts the reader
 func (s *UDP) Start(ctx context.Context, cb ReadCallBackFun) error {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: s.config.Port,

@@ -155,7 +155,7 @@ func (g *Gauge) update(i float64) {
 	fmt.Printf("updating the gauge [%s] with value [%f]\n", g.Name, i)
 }
 
-// LInc is the lua binding for int() call
+// LInc is the lua binding for inc() call
 func (c *Counter) LInc(L *lua.LState) int {
 	i := L.ToInt(1)
 	c.inc(i)
