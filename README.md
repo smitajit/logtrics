@@ -1,5 +1,5 @@
 # logtrics
-Applicaton to genrate mertrics from logs.
+application to read, aggregate, notify and generate metrics based on logs.
 
 ### configuration
 ```Usage:
@@ -23,8 +23,9 @@ Flags:
 ```
 ### lua script
 ```lua
--- script global variables can be defined here
--- local prefix = ""
+-- script global variables can be defined here ---
+-- useful to implement custom aggregrators ---
+-- local prefix = "" ---
 
 -- logtrics instance to configure log parsing logic --
 -- multiple logtrics instances can be configured in same script --
@@ -46,8 +47,22 @@ logtrics {
 	-- @... : the substring matched by the regular expression ---
 	process = function(source, line,  params, ...)
 		local r = math.random(1,10)
+
+		--- example logging api to debug from script ---
 		debug("lua: processing log line [%s] from source [%s]" , line , source)
-		-- graphite().counter(prefix).increment(r)
+
+		--- example graphite api to publish graphite metrics ---
+		--- graphite().counter(prefix).increment(r) ---
+
+		--- example notify api to send notifications ---
+		--- notification().mail("recipient").subject("").body("").send() ---
+		--- notification().slack("channel").message("").send() ---
+
+		--- TODOs ---
+		--- prometheus apis ---
+		--- data persistence apis ---
+		--- aggregation apis ---
+
 		end,
 }
 ```
