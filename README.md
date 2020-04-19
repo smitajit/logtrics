@@ -1,5 +1,5 @@
 # logtrics
-application to read, aggregate, notify and generate metrics based on logs.
+<span style="color:yellow">WIP</span> application to read, aggregate, notify and generate metrics based on logs.
 
 ### configuration
 ```Usage:
