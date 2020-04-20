@@ -2,110 +2,124 @@ package graphite
 
 import (
 	"fmt"
-	"strconv"
+	"net"
+	"time"
 
+	graphite "github.com/cyberdelia/go-metrics-graphite"
+	"github.com/pkg/errors"
+	goMetrics "github.com/rcrowley/go-metrics"
+	"github.com/rs/zerolog"
+	"github.com/smitajit/logtrics/config"
 	lua "github.com/yuin/gopher-lua"
 )
 
 type (
-	// Graphite handles the graphite
+	// Graphite represents the graphite module of the application
+	// It store the graphite registry configs and provide method for metrics operations
 	Graphite struct {
-		Host     string
-		Port     int
-		Interval int
+		registry goMetrics.Registry
+		logger   zerolog.Logger
+		config   *config.Configuration
 	}
 
 	// Counter represents counter metrics
 	Counter struct {
-		Name string
+		name    string
+		counter goMetrics.Counter
 	}
+
 	// Timer represents timer metrics
 	Timer struct {
-		Name string
+		name  string
+		timer goMetrics.Timer
+	}
+
+	// Meter represents the meter metrics
+	Meter struct {
+		Name  string
+		meter goMetrics.Meter
 	}
 
 	// Gauge represents gauge metrics
 	Gauge struct {
-		Name string
+		name  string
+		gauge goMetrics.Gauge
 	}
 )
 
-// Update updates self with lua table
-func (g *Graphite) Update(v lua.LValue) error {
-	if v == nil {
-		// default values are already present. No need to panic :)
-		return nil
+// NewGraphite returns a new graphite instance
+// It starts the thread which published the metrics in regular interval (config.Graphite.Interval)
+func NewGraphite(config *config.Configuration, L *lua.LState, logger zerolog.Logger) (*Graphite, error) {
+	var (
+		registry = goMetrics.NewRegistry()
+		interval = time.Second * time.Duration(config.Graphite.Interval)
+		address  = fmt.Sprintf("%s:%d", config.Graphite.Host, config.Graphite.Port)
+	)
+
+	logger.Debug().Msgf("making graphite connection to %s", address)
+	addr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return nil, errors.Wrap(err, "graphite connection failed")
 	}
-	table, ok := v.(*lua.LTable)
-	if !ok {
-		return fmt.Errorf("invalid graphite config")
+	go graphite.Graphite(registry, interval, "", addr)
+	g := &Graphite{
+		config:   config,
+		logger:   logger,
+		registry: registry,
 	}
-	var err error = nil
-	table.ForEach(func(k, v lua.LValue) {
-		if err != nil {
-			return
-		}
-		switch k {
-		case lua.LString("host"):
-			g.Host = v.String()
-			if g.Host == "" {
-				err = fmt.Errorf("invalid graphite config")
-			}
-		case lua.LString("port"):
-			g.Port, err = strconv.Atoi(v.String())
-		case lua.LString("interval"):
-			g.Port, err = strconv.Atoi(v.String())
-		default:
-			err = fmt.Errorf("invalid graphite config [%s]", k.String())
-		}
-	})
-	return err
+
+	return g, nil
 }
 
-// LGraphite is the lua binding for graphite() function
-func (g *Graphite) LGraphite(L *lua.LState) int {
-	table := L.NewTable()
-	L.SetField(table, "counter", L.NewFunction(g.LCounter))
-	L.Push(table)
-	return 1
-}
-
-// LCounter is lua binding for counter function on graphite
-func (g *Graphite) LCounter(L *lua.LState) int {
+// LAPICounter is lua binding for counter function on the graphite instance
+func (g *Graphite) LAPICounter(L *lua.LState) int {
 	metricname := L.ToString(1)
 	if metricname == "" {
-		L.ArgError(1, "no metric name found for the counter")
+		L.RaiseError("graphite: invalid counter name")
 	}
 	c := g.counter(metricname)
 	table := L.NewTable()
-	L.SetField(table, "inc", L.NewFunction(c.LInc))
-	L.SetField(table, "dec", L.NewFunction(c.LDec))
+	L.SetField(table, "inc", L.NewFunction(c.LAPIInc))
+	L.SetField(table, "dec", L.NewFunction(c.LAPIDec))
 	L.Push(table)
 	return 1
 }
 
-// LGauge is the lua biding for gauge function call on graphite
-func (g *Graphite) LGauge(L *lua.LState) int {
+// LAPIGauge is the lua biding for gauge function call on the graphite instance
+func (g *Graphite) LAPIGauge(L *lua.LState) int {
 	metricname := L.ToString(1)
 	if metricname == "" {
-		L.ArgError(1, "no metric name found for the counter")
+		L.RaiseError("graphite: invalid gauge name")
 	}
 	m := g.gauge(metricname)
 	table := L.NewTable()
-	L.SetField(table, "update", L.NewFunction(m.LUpdate))
+	L.SetField(table, "update", L.NewFunction(m.LAPIUpdate))
 	L.Push(table)
 	return 1
 }
 
-// LTimer is the lua binding for timer function call n graphite
-func (g *Graphite) LTimer(L *lua.LState) int {
+// LAPITimer is the lua binding for timer function call on the graphite instance
+func (g *Graphite) LAPITimer(L *lua.LState) int {
 	metricname := L.ToString(1)
 	if metricname == "" {
-		L.ArgError(1, "no metric name found for the counter")
+		L.RaiseError("graphite: invalid timer name")
 	}
 	m := g.timer(metricname)
 	table := L.NewTable()
-	L.SetField(table, "update", L.NewFunction(m.LUpdate))
+	L.SetField(table, "update", L.NewFunction(m.LAPIUpdate))
+	L.Push(table)
+	return 1
+}
+
+// LAPIMeter is the lua binding for the meter function call on the graphite instance
+func (g *Graphite) LAPIMeter(L *lua.LState) int {
+	metricname := L.ToString(1)
+	if metricname == "" {
+		L.RaiseError("graphite: invalid meter name")
+	}
+	m := g.meter(metricname)
+	table := L.NewTable()
+	L.SetField(table, "mark", L.NewFunction(m.LAPIMark))
 	L.Push(table)
 	return 1
 }
@@ -113,68 +127,66 @@ func (g *Graphite) LTimer(L *lua.LState) int {
 // timer return the timer instance for the metrics name
 func (g *Graphite) timer(name string) *Timer {
 	return &Timer{
-		Name: name,
+		name:  name,
+		timer: goMetrics.GetOrRegisterTimer(name, g.registry),
 	}
 }
 
-// gauge returns the gauge for metric name
+// gauge returns the gauge for the metric name
 func (g *Graphite) gauge(name string) *Gauge {
 	return &Gauge{
-		Name: name,
+		name:  name,
+		gauge: goMetrics.GetOrRegisterGauge(name, g.registry),
 	}
 }
 
 // counter returns the counter for the metrics name
 func (g *Graphite) counter(name string) *Counter {
 	return &Counter{
-		Name: name,
+		name:    name,
+		counter: goMetrics.GetOrRegisterCounter(name, g.registry),
 	}
 }
 
-// LUpdate is lua binding for update function call on timer
-func (t *Timer) LUpdate(L *lua.LState) int {
-	i := L.ToNumber(1)
-	t.update(float64(i))
+// counter returns the counter for the metrics name
+func (g *Graphite) meter(name string) *Meter {
+	return &Meter{
+		Name:  name,
+		meter: goMetrics.GetOrRegisterMeter(name, g.registry),
+	}
+}
+
+// LAPIUpdate is lua binding for update function call on the timer instance
+func (t *Timer) LAPIUpdate(L *lua.LState) int {
+	i := L.ToInt64(1)
+	t.timer.Update(time.Duration(i))
 	return 1
 }
 
-// LUpdate is lua binding for update function call on gauge
-func (g *Gauge) LUpdate(L *lua.LState) int {
-	i := L.ToNumber(1)
-	g.update(float64(i))
+// LAPIUpdate is lua binding for update function call on the gauge instance
+func (g *Gauge) LAPIUpdate(L *lua.LState) int {
+	i := L.ToInt64(1)
+	g.gauge.Update(i)
 	return 1
 }
 
-// update updates the timer value
-func (t *Timer) update(i float64) {
-	fmt.Printf("updating the timer [%s] with value [%f]\n", t.Name, i)
+// LAPIMark is the lua binding for mark function call on the meter instance
+func (g *Meter) LAPIMark(L *lua.LState) int {
+	i := L.ToInt64(1)
+	g.meter.Mark(i)
+	return 1
 }
 
-// update updates gauge values
-func (g *Gauge) update(i float64) {
-	fmt.Printf("updating the gauge [%s] with value [%f]\n", g.Name, i)
-}
-
-// LInc is the lua binding for inc() call
-func (c *Counter) LInc(L *lua.LState) int {
-	i := L.ToInt(1)
-	c.inc(i)
+// LAPIInc is the lua binding for inc function call
+func (c *Counter) LAPIInc(L *lua.LState) int {
+	i := L.ToInt64(1)
+	c.counter.Inc(i)
 	return 0
 }
 
-// inc increments the counter value
-func (c *Counter) inc(i int) {
-	fmt.Printf("incrementing counter [%s] with value [%d]\n", c.Name, i)
-}
-
-// LDec is the lua call back for dec function call
-func (c *Counter) LDec(L *lua.LState) int {
-	i := L.ToInt(1)
-	c.inc(i)
+// LAPIDec is the lua call back for dec function call
+func (c *Counter) LAPIDec(L *lua.LState) int {
+	i := L.ToInt64(1)
+	c.counter.Dec(i)
 	return 0
-}
-
-// dec decrements the counter value
-func (c *Counter) dec(i int) {
-	fmt.Printf("incrementing counter [%s] with value [%d]\n", c.Name, i)
 }

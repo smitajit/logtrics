@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/smitajit/logtrics/config"
 	"github.com/smitajit/logtrics/pkg"
 	"github.com/smitajit/logtrics/pkg/reader"
@@ -17,13 +16,18 @@ import (
 
 const (
 	// DefaultConfigPath is the default config path
-	DefaultConfigPath = "/etc/logtrics.toml"
+	DefaultConfigPath = "/etc/logtrics/logtrics.toml"
+
+	//DefaultScriptDir is the default location from where all the scripts will be read
+	DefaultScriptDir = "/etc/logtrics/scripts/"
 )
 
 var (
+	//nolint:gochecknoglobals
 	cmd = &cobra.Command{
-		Use:   "logtrics",
-		Short: "logtrics is a log parser metrics generator",
+		Use:     "logtrics",
+		Short:   "logtrics is a log parser metrics generator",
+		Version: "1.0.0",
 		Long: `logtrics generates metrics by parsing regular expression.
 		it provides abstract APIs and lua binding to build parser and metrics generator logic`,
 		RunE: func(_ *cobra.Command, _ []string) error { return run() },
@@ -35,9 +39,10 @@ func init() {
 
 	flags.StringP("config", "c", DefaultConfigPath, "config file path")
 	flags.StringP("mode", "m", "", `run modes, choices are "console", "filetail", "udp", "tcp"'`)
+	flags.Int("buffer.size", 0, "go channel default buffer size")
 
 	flags.StringP("script.file", "f", "", "lua script file path")
-	flags.StringP("script.dir", "d", "", "lua scripts directory")
+	flags.StringP("script.dir", "d", DefaultScriptDir, "lua scripts directory")
 
 	flags.StringP("logging.level", "", "info", "logging level")
 	flags.StringP("logging.type", "", "console", `logging type, choices are "syslog", "console"`)
@@ -54,6 +59,7 @@ func init() {
 
 	_ = viper.BindPFlag("config", flags.Lookup("config"))
 	_ = viper.BindPFlag("mode", flags.Lookup("mode"))
+	_ = viper.BindPFlag("buffersize", flags.Lookup("buffer.size"))
 	_ = viper.BindPFlag("scriptfile", flags.Lookup("script.file"))
 	_ = viper.BindPFlag("scriptdir", flags.Lookup("script.dir"))
 	_ = viper.BindPFlag("logging.level", flags.Lookup("logging.level"))
@@ -104,19 +110,18 @@ func scripts(config *config.Configuration) ([]string, error) {
 		}
 		return nil
 	})
-	fmt.Printf("script file are %+v \n", scripts) // TODO log
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("no scripts found")
+	}
 	return scripts, err
 }
 
 func runConsole(config *config.Configuration) error {
 	scripts, err := scripts(config)
 	if nil != err {
-		return errors.Wrap(err, "failed to get the scripts")
+		return err
 	}
-	if len(scripts) == 0 {
-		return fmt.Errorf("no scripts found")
-	}
-	reader := reader.NewConsole()
+	reader := reader.NewConsole(config)
 	app, err := pkg.NewApp(config, reader, scripts...)
 	if err != nil {
 		log.Fatal(err)
@@ -130,10 +135,7 @@ func runConsole(config *config.Configuration) error {
 func runUDP(config *config.Configuration) error {
 	scripts, err := scripts(config)
 	if nil != err {
-		return errors.Wrap(err, "failed to get the scripts")
-	}
-	if len(scripts) == 0 {
-		return fmt.Errorf("no scripts found")
+		return err
 	}
 	reader := reader.NewUDP(config)
 	app, err := pkg.NewApp(config, reader, scripts...)

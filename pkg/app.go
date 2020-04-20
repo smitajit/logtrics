@@ -9,18 +9,23 @@ import (
 	"github.com/smitajit/logtrics/pkg/reader"
 )
 
+// Application represents this application
+// it stores all the application states and maintains the runtime
 type Application struct {
 	reader  reader.LogReader
 	scripts []*Script
 	ctx     context.Context
 	cncel   context.CancelFunc
+	config  *config.Configuration
 	logger  zerolog.Logger
 }
 
+//NewApp returns a new Application instance
 func NewApp(config *config.Configuration, reader reader.LogReader, scripts ...string) (*Application, error) {
 	app := &Application{
 		reader:  reader,
 		scripts: make([]*Script, 0),
+		config:  config,
 		logger:  config.Logger("application"),
 	}
 	app.ctx, app.cncel = context.WithCancel(context.Background())
@@ -34,7 +39,12 @@ func NewApp(config *config.Configuration, reader reader.LogReader, scripts ...st
 	return app, nil
 }
 
+// Start starts the application
+// returns error in case of any failure
+// parameter sync represents the mode of application. If set as false all the scrips will run in single go routine, otherwise each script will run in its own go routine
+// note:  this is a blocking call.
 func (app *Application) Start(sync bool) error {
+	defer func() { _ = app.Stop() }()
 	if sync {
 		return app.startSync()
 	}
@@ -42,7 +52,7 @@ func (app *Application) Start(sync bool) error {
 }
 
 func (app *Application) startAsync() error {
-	chs := make([]chan reader.LogEvent, 0)
+	chs := make([]chan reader.LogEvent, app.config.BufferSize)
 	for _, s := range app.scripts {
 		c := make(chan reader.LogEvent)
 		go s.RunAsync(app.ctx, c)
@@ -73,8 +83,8 @@ func (app *Application) startSync() error {
 	return app.reader.Start(app.ctx, f)
 }
 
-// Close closed the application
-func (app *Application) Close() error {
+// Stop closed the application
+func (app *Application) Stop() error {
 	app.cncel()
 	return nil
 }

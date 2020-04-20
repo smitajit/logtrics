@@ -4,15 +4,20 @@ go 1.14
 
 require (
 	github.com/antlr/antlr4 v0.0.0-20200412020049-7a11432ede99
+	github.com/aymerick/douceur v0.2.0
 	github.com/c-bata/go-prompt v0.2.3
+	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/go-errors/errors v1.0.2
 	github.com/google/skylark v0.0.0-20181101142754-a5f7082aabed // indirect
+	github.com/gorilla/css v1.0.0 // indirect
+	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pelletier/go-toml v1.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/prometheus/client_golang v1.5.1
+	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/robertkrimen/otto v0.0.0-20191219234010-c382bd3c16ff
 	github.com/rs/zerolog v1.18.0
 	github.com/sirupsen/logrus v1.4.2

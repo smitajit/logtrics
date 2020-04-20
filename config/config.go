@@ -5,12 +5,16 @@ import (
 	"log/syslog"
 	"os"
 	"path"
-	"strings"
+	"strconv"
+	"time"
 
+	"github.com/jinzhu/copier"
 	"github.com/rs/zerolog"
+	lua "github.com/yuin/gopher-lua"
 )
 
 var (
+	//nolint:gochecknoglobals
 	lvlMap = map[string]zerolog.Level{
 		"debug": zerolog.DebugLevel, "info": zerolog.InfoLevel,
 		"warn": zerolog.WarnLevel, "error": zerolog.ErrorLevel, "": zerolog.Disabled,
@@ -21,8 +25,10 @@ type (
 	// Configuration represents the application's configuration
 	Configuration struct {
 		Mode       string    `toml:"mode"`
+		Expression string    `toml:"expression"`
 		ScriptFile string    `toml:"scriptfile"`
 		ScriptDir  string    `toml:"scriptdir"`
+		BufferSize int       `toml:"buffersize"`
 		Graphite   *Graphite `toml:"graphite"`
 		UDP        *UDP      `toml:"udp"`
 		TCP        *TCP      `toml:"tcp"`
@@ -55,8 +61,105 @@ type (
 	}
 )
 
+// Merge returns new Configuration after merging the values from lua
+func (c *Configuration) Merge(v lua.LValue) (*Configuration, error) {
+	table, ok := v.(*lua.LTable)
+	if !ok {
+		return nil, fmt.Errorf("invalid configuration. Expected table")
+	}
+	var (
+		merged       = new(Configuration)
+		err    error = nil
+	)
+	if err := copier.Copy(merged, c); err != nil {
+		return nil, err //TODO wrap may be?
+	}
+	table.ForEach(func(k lua.LValue, v lua.LValue) {
+		if err != nil {
+			return
+		}
+		switch k {
+		case lua.LString("process"), lua.LString("timer"):
+			//ignore
+		case lua.LString("graphite"):
+			if merged.Graphite == nil {
+				merged.Graphite = &Graphite{}
+			}
+			err = merged.Graphite.Merge(v)
+		case lua.LString("logging"):
+			if merged.Logging == nil {
+				merged.Logging = &Logging{}
+			}
+			err = merged.Logging.Merge(v)
+		case lua.LString("expression"):
+			merged.Expression = v.String()
+		case lua.LString("sctriptfile"), lua.LString("scriptdir"), lua.LString("mode"), lua.LString("tcp"), lua.LString("udp"):
+			err = fmt.Errorf("modification is not supported for [%s]", k.String())
+		default:
+			err = fmt.Errorf("invalid key %s", k.String())
+		}
+	})
+	return merged, err
+}
+
+// Merge ...
+func (l *Logging) Merge(v lua.LValue) error {
+	table, ok := v.(*lua.LTable)
+	if !ok {
+		return fmt.Errorf("invalid logging configuration")
+	}
+	var err error = nil
+	table.ForEach(func(k, v lua.LValue) {
+		if err != nil {
+			return
+		}
+		switch k {
+		case lua.LString("type"):
+			l.Type = v.String()
+		case lua.LString("level"):
+			l.Level = v.String()
+		default:
+			err = fmt.Errorf("invalid logging config")
+			return
+		}
+	})
+	return err
+}
+
+// Merge ...
+func (g *Graphite) Merge(v lua.LValue) error {
+	table, ok := v.(*lua.LTable)
+	if !ok {
+		return fmt.Errorf("invalid graphite configuration")
+	}
+	var err error = nil
+	table.ForEach(func(k, v lua.LValue) {
+		if err != nil {
+			return
+		}
+		switch k {
+		case lua.LString("host"):
+			g.Host = v.String()
+		case lua.LString("port"):
+			g.Port, err = strconv.Atoi(v.String())
+			if err != nil {
+				return
+			}
+		case lua.LString("interval"):
+			g.Interval, err = strconv.Atoi(v.String())
+			if err != nil {
+				return
+			}
+		default:
+			err = fmt.Errorf("invalid graphite config")
+			return
+		}
+	})
+	return err
+}
+
 // Logger returns the application logger
-func (c *Configuration) Logger(unit string) (logger zerolog.Logger) {
+func (c *Configuration) Logger(source string) (logger zerolog.Logger) {
 	level := lvlMap[c.Logging.Level]
 	switch {
 	case c.Logging.Type == "syslog":
@@ -66,11 +169,8 @@ func (c *Configuration) Logger(unit string) (logger zerolog.Logger) {
 		}
 		logger = zerolog.New(zerolog.SyslogLevelWriter(writer))
 	default:
-		out := zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false}
-		out.FormatLevel = func(i interface{}) string { return strings.ToUpper(fmt.Sprintf("%s", i)) }
-		out.FormatFieldName = func(i interface{}) string { return fmt.Sprintf("%s:", i) }
-		out.FormatFieldValue = func(i interface{}) string { return fmt.Sprintf("%s", i) }
-		logger = zerolog.New(out)
+		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+
 	}
-	return logger.With().Str("unit", unit).Logger().Level(level)
+	return logger.With().Timestamp().Str("source", source).Logger().Level(level)
 }

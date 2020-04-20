@@ -9,18 +9,21 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/smitajit/logtrics/config"
 )
 
 var (
 	// ConsoleReaderPrompt is prompt string
+	//nolint:gochecknoglobals
 	ConsoleReaderPrompt = " logtrics > "
 
 	// ConsoleReaderHelp is the help text:w
+	//nolint:gochecknoglobals
 	ConsoleReaderHelp = `
-........................................................................................
+----------------------------------------------------------------------------------------
 Console reader help text goes here
-........................................................................................
+----------------------------------------------------------------------------------------
 `
 )
 
@@ -44,17 +47,19 @@ type (
 	Console struct {
 		io.Writer
 		io.Reader
+		logger zerolog.Logger
 	}
 
 	// UDP represents the log reader in UDP server mode
 	UDP struct {
-		config *config.UDP
+		config *config.Configuration
+		logger zerolog.Logger
 	}
 )
 
 // NewConsole returns a new Console runner instance
-func NewConsole() LogReader {
-	return &Console{Reader: os.Stdin, Writer: os.Stdout}
+func NewConsole(config *config.Configuration) LogReader {
+	return &Console{Reader: os.Stdin, Writer: os.Stdout, logger: config.Logger("reader: console")}
 }
 
 // Start the reader in console mode
@@ -64,6 +69,7 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 	for {
 		select {
 		case <-ctx.Done():
+			c.logger.Debug().Msg("terminating console")
 			return nil
 		default:
 			fmt.Print(ConsoleReaderPrompt)
@@ -72,6 +78,7 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 				cb(LogEvent{"console", "", err})
 				continue
 			}
+			line = strings.TrimRight(line, "\r\n")
 			cb(LogEvent{"console", line, nil})
 		}
 	}
@@ -79,32 +86,36 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 
 // NewUDP returns a new UDP server mode reader
 func NewUDP(config *config.Configuration) LogReader {
-	return &UDP{config.UDP}
+	return &UDP{config: config, logger: config.Logger("reader: udp")}
 }
 
 // Start starts the reader
 func (s *UDP) Start(ctx context.Context, cb ReadCallBackFun) error {
+	if s.config.UDP == nil || s.config.UDP.Host == "" {
+		return fmt.Errorf("invalid UDP server configuration")
+	}
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{
-		Port: s.config.Port,
-		IP:   net.ParseIP(s.config.Host),
+		Port: s.config.UDP.Port,
+		IP:   net.ParseIP(s.config.UDP.Host),
 	})
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	fmt.Printf("server listening %s\n", conn.LocalAddr().String())
-
+	defer func() { _ = conn.Close() }()
+	s.logger.Debug().Msg("UDP server started")
 	for {
 		select {
 		case <-ctx.Done():
+			s.logger.Debug().Msg("terminating UDP server")
 			return nil
 		default:
-			message := make([]byte, 1024)
-			rlen, remote, err := conn.ReadFromUDP(message[:])
+			b := make([]byte, 1024)
+			rlen, remote, err := conn.ReadFromUDP(b[:])
 			if err != nil {
 				cb(LogEvent{fmt.Sprintf("UDP:%s", remote), "", err})
 			}
-			line := strings.TrimSpace(string(message[:rlen]))
+			line := strings.TrimSpace(string(b[:rlen]))
+			line = strings.TrimSuffix(line, "\r\n")
 			cb(LogEvent{fmt.Sprintf("UDP:%s", remote), line, nil})
 		}
 	}
