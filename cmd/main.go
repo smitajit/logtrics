@@ -44,18 +44,19 @@ func init() {
 	flags.StringP("script.file", "f", "", "lua script file path")
 	flags.StringP("script.dir", "d", DefaultScriptDir, "lua scripts directory")
 
-	flags.StringP("logging.level", "", "info", "logging level")
-	flags.StringP("logging.type", "", "console", `logging type, choices are "syslog", "console"`)
+	flags.String("logging.level", "info", "logging level")
+	flags.String("logging.type", "console", `logging type, choices are "syslog", "console"`)
 
-	flags.String("udp.host", "", "udp server listening host")
-	flags.Int("udp.port", 0, "udp server listening port")
+	flags.String("udp.host", "127.0.0.1", "udp server listening host")
+	flags.Int("udp.port", 4002, "udp server listening port")
 
-	flags.String("tcp.host", "", "tcp server listening host")
-	flags.Int("tcp.port", 0, "tcp server listening port")
+	flags.String("tcp.host", "127.0.0.1", "tcp server listening host")
+	flags.Int("tcp.port", 4003, "tcp server listening port")
 
-	flags.String("graphite.host", "", "graphite server host")
-	flags.Int("graphite.port", 0, "graphite server port")
-	flags.Int("graphite.interval", 0, "interval in secs")
+	flags.String("graphite.host", "127.0.0.1", "graphite server host")
+	flags.Int("graphite.port", 2024, "graphite server port")
+	flags.Int("graphite.interval", 30, "interval in secs")
+	flags.Bool("graphite.debug", false, "if enabled metrics will be logged")
 
 	_ = viper.BindPFlag("config", flags.Lookup("config"))
 	_ = viper.BindPFlag("mode", flags.Lookup("mode"))
@@ -71,6 +72,7 @@ func init() {
 	_ = viper.BindPFlag("graphite.host", flags.Lookup("graphite.host"))
 	_ = viper.BindPFlag("graphite.port", flags.Lookup("graphite.port"))
 	_ = viper.BindPFlag("graphite.interval", flags.Lookup("graphite.interval"))
+	_ = viper.BindPFlag("graphite.debug", flags.Lookup("graphite.debug"))
 
 	cobra.OnInitialize(func() {
 		viper.SetConfigFile(viper.GetString("config"))
@@ -122,11 +124,11 @@ func runConsole(config *config.Configuration) error {
 		return err
 	}
 	reader := reader.NewConsole(config)
-	app, err := pkg.NewApp(config, reader, scripts...)
+	app, err := pkg.NewApplication(config, reader, scripts...)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := app.Start(true); err != nil {
+	if err := app.Start(false); err != nil {
 		log.Fatal(err)
 	}
 	return nil
@@ -138,7 +140,7 @@ func runUDP(config *config.Configuration) error {
 		return err
 	}
 	reader := reader.NewUDP(config)
-	app, err := pkg.NewApp(config, reader, scripts...)
+	app, err := pkg.NewApplication(config, reader, scripts...)
 	if err != nil {
 		log.Fatal(err)
 	}

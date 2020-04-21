@@ -1,8 +1,34 @@
+# application mode. Choices are console, udp
 mode = "console"
-script = "somescript"
-scriptdir = "some dir"
+# script file location
+scriptdir = "/etc/logtrics/scripts/"
 
+# single script file. Useful for debugging
+#scriptfile = "examples/demo.lua"
+
+# buffer size of log event channel 
+# buffersize = 0
+
+# graphite server configuration
 [graphite]
-  host = "localhost"
-  interval = 3
-  port = 1213
+  debug = false
+  host = "127.0.0.1"
+  interval = 30
+  port = 2024
+
+# logging configuration
+[logging]
+  # level of logging. Choices are fatal, error, warn, info, debug, trace
+  level = "info"
+  # type of logging. Choices are console, syslog
+  type = "console"
+
+# tcp listener mode
+# [tcp]
+  # host = "127.0.0.1"
+  # port = 4003
+
+# udp listener mode
+# [udp]
+  # host = "127.0.0.1"
+  # port = 4002

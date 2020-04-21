@@ -84,9 +84,9 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 	}
 }
 
-// NewUDP returns a new UDP server mode reader
+// NewUDP returns a new reader which reads the logs from the UDP socket
 func NewUDP(config *config.Configuration) LogReader {
-	return &UDP{config: config, logger: config.Logger("reader: udp")}
+	return &UDP{config: config, logger: config.Logger("reader: UDP")}
 }
 
 // Start starts the reader

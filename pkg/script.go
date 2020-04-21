@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/rs/zerolog"
 	"github.com/smitajit/logtrics/config"
@@ -46,6 +45,7 @@ func (s *Script) RunAsync(ctx context.Context, c <-chan reader.LogEvent) {
 		case <-ctx.Done():
 			return
 		case event := <-c:
+			s.logger.Debug().Msgf("log event received from reader : %s", event.Source)
 			s.Run(ctx, event)
 		}
 	}
@@ -67,8 +67,7 @@ func (s *Script) Run(ctx context.Context, event reader.LogEvent) {
 func (s *Script) LAPILogtric(L *lua.LState) int {
 	// parsing the lua script
 	table := L.ToTable(1)
-	id := fmt.Sprintf("%s:[logtric-%d]", s.Path, len(s.logtrics)+1)
-	l, err := NewLogtric(id, s.config, L, table)
+	l, err := NewLogtric(s.Path, s.config, L, table)
 	if err != nil {
 		L.RaiseError(err.Error())
 	}

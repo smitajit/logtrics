@@ -58,15 +58,12 @@ type (
 		Host     string `toml:"host"`
 		Port     int    `toml:"port"`
 		Interval int    `toml:"interval"`
+		Debug    bool   `toml:"debug"`
 	}
 )
 
 // Merge returns new Configuration after merging the values from lua
-func (c *Configuration) Merge(v lua.LValue) (*Configuration, error) {
-	table, ok := v.(*lua.LTable)
-	if !ok {
-		return nil, fmt.Errorf("invalid configuration. Expected table")
-	}
+func (c *Configuration) Merge(table *lua.LTable) (*Configuration, error) {
 	var (
 		merged       = new(Configuration)
 		err    error = nil
@@ -79,7 +76,7 @@ func (c *Configuration) Merge(v lua.LValue) (*Configuration, error) {
 			return
 		}
 		switch k {
-		case lua.LString("process"), lua.LString("timer"):
+		case lua.LString("process"), lua.LString("timer"), lua.LString("name"):
 			//ignore
 		case lua.LString("graphite"):
 			if merged.Graphite == nil {
@@ -150,9 +147,11 @@ func (g *Graphite) Merge(v lua.LValue) error {
 			if err != nil {
 				return
 			}
-		default:
-			err = fmt.Errorf("invalid graphite config")
-			return
+		case lua.LString("debug"):
+			g.Debug, err = strconv.ParseBool(v.String())
+			if err != nil {
+				return
+			}
 		}
 	})
 	return err

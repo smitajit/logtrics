@@ -2,6 +2,7 @@ package graphite
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -56,12 +57,37 @@ func NewGraphite(config *config.Configuration, L *lua.LState, logger zerolog.Log
 		address  = fmt.Sprintf("%s:%d", config.Graphite.Host, config.Graphite.Port)
 	)
 
-	logger.Debug().Msgf("making graphite connection to %s", address)
 	addr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
 		return nil, errors.Wrap(err, "graphite connection failed")
 	}
-	go graphite.Graphite(registry, interval, "", addr)
+	fmt.Println(addr)
+
+	c := graphite.Config{
+		Addr:          addr,
+		Registry:      registry,
+		FlushInterval: time.Duration(config.Graphite.Interval),
+		DurationUnit:  time.Second,
+		Percentiles:   []float64{0.5, 0.75, 0.95, 0.99, 0.999},
+	}
+
+	if config.Graphite.Debug {
+		logger.Debug().
+			Str("graphite.host", config.Graphite.Host).
+			Int("graphite.port", config.Graphite.Port).
+			Int("graphite.interval", config.Graphite.Interval).
+			Bool("graphite.debug", config.Graphite.Debug).
+			Msg("graphite configuration")
+		go goMetrics.Log(registry, interval, log.New(logger, "metrics---", log.Lmicroseconds))
+	}
+	go func() {
+		for _ = range time.Tick(interval) {
+			err := graphite.Once(c)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to send graphite metrics")
+			}
+		}
+	}()
 	g := &Graphite{
 		config:   config,
 		logger:   logger,

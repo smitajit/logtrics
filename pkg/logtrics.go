@@ -15,7 +15,7 @@ type (
 	// Logtric represents the logtrics instance configured in lua
 	// it stores the lua script states and provides runtime bindings to lua
 	Logtric struct {
-		id       string
+		name     string
 		state    *lua.LState
 		parser   *Parser
 		process  *lua.LFunction
@@ -26,10 +26,10 @@ type (
 )
 
 // NewLogtric returns a new instance of Logtric
-func NewLogtric(id string, config *config.Configuration, state *lua.LState, v lua.LValue) (*Logtric, error) {
-	table, ok := v.(*lua.LTable)
-	if !ok {
-		return nil, fmt.Errorf("invalid logtric config")
+func NewLogtric(script string, config *config.Configuration, state *lua.LState, table *lua.LTable) (*Logtric, error) {
+	name := table.RawGet(lua.LString("name")).String()
+	if name == "" || name == "nil" {
+		name = "?"
 	}
 
 	p := table.RawGet(lua.LString("process"))
@@ -49,12 +49,12 @@ func NewLogtric(id string, config *config.Configuration, state *lua.LState, v lu
 	}
 
 	l := &Logtric{
-		id:      id,
+		name:    name,
 		state:   state,
 		config:  config,
 		process: process,
 		parser:  parser,
-		logger:  config.Logger(id),
+		logger:  config.Logger(fmt.Sprintf("%s:[%s]", script, name)),
 	}
 	return l, nil
 }
@@ -66,10 +66,14 @@ func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
 		NRet:    0,
 		Protect: true,
 	}
-
+	// binding logging apis
 	l.state.SetGlobal("debug", l.state.NewFunction(l.LAPIDebug))
 	l.state.SetGlobal("error", l.state.NewFunction(l.LAPIError))
 	l.state.SetGlobal("info", l.state.NewFunction(l.LAPIInfo))
+	l.state.SetGlobal("fatal", l.state.NewFunction(l.LAPIFatal))
+	l.state.SetGlobal("trace", l.state.NewFunction(l.LAPITrace))
+
+	// binding graphite api
 	l.state.SetGlobal("graphite", l.state.NewFunction(l.LAPIGraphite))
 
 	args := []string{event.Source, event.Line}
@@ -135,6 +139,36 @@ func (l *Logtric) LAPIError(L *lua.LState) int {
 	return 0
 }
 
+// LAPIFatal represent the lua binding for fatal() function call
+func (l *Logtric) LAPIFatal(L *lua.LState) int {
+	n := L.GetTop()
+	if n < 1 {
+		L.RaiseError("parameter required for error")
+	}
+	args := make([]interface{}, 0)
+	for i := 2; i <= n; i++ {
+		v := L.Get(i)
+		args = append(args, v.String())
+	}
+	l.logger.Fatal().Msgf(L.ToString(1), args...)
+	return 0
+}
+
+// LAPITrace represent the lua binding for fatal() function call
+func (l *Logtric) LAPITrace(L *lua.LState) int {
+	n := L.GetTop()
+	if n < 1 {
+		L.RaiseError("parameter required for error")
+	}
+	args := make([]interface{}, 0)
+	for i := 2; i <= n; i++ {
+		v := L.Get(i)
+		args = append(args, v.String())
+	}
+	l.logger.Trace().Msgf(L.ToString(1), args...)
+	return 0
+}
+
 // LAPIGraphite is represents the lua binding for graphite() api call
 func (l *Logtric) LAPIGraphite(L *lua.LState) int {
 	if l.graphite == nil {
@@ -146,8 +180,9 @@ func (l *Logtric) LAPIGraphite(L *lua.LState) int {
 	}
 	table := L.NewTable()
 	L.SetField(table, "counter", L.NewFunction(l.graphite.LAPICounter))
-	L.SetField(table, "timer", L.NewFunction(l.graphite.LAPICounter))
-	L.SetField(table, "gauge", L.NewFunction(l.graphite.LAPICounter))
+	L.SetField(table, "timer", L.NewFunction(l.graphite.LAPITimer))
+	L.SetField(table, "gauge", L.NewFunction(l.graphite.LAPIGauge))
+	L.SetField(table, "meter", L.NewFunction(l.graphite.LAPIMeter))
 	L.Push(table)
 	return 1
 }

@@ -15,20 +15,20 @@ type Application struct {
 	reader  reader.LogReader
 	scripts []*Script
 	ctx     context.Context
-	cncel   context.CancelFunc
+	cancel  context.CancelFunc
 	config  *config.Configuration
 	logger  zerolog.Logger
 }
 
-//NewApp returns a new Application instance
-func NewApp(config *config.Configuration, reader reader.LogReader, scripts ...string) (*Application, error) {
+//NewApplication returns a new Application instance
+func NewApplication(config *config.Configuration, reader reader.LogReader, scripts ...string) (*Application, error) {
 	app := &Application{
 		reader:  reader,
 		scripts: make([]*Script, 0),
 		config:  config,
 		logger:  config.Logger("application"),
 	}
-	app.ctx, app.cncel = context.WithCancel(context.Background())
+	app.ctx, app.cancel = context.WithCancel(context.Background())
 	for _, s := range scripts {
 		script, err := NewScript(s, config)
 		if err != nil {
@@ -41,21 +41,25 @@ func NewApp(config *config.Configuration, reader reader.LogReader, scripts ...st
 
 // Start starts the application
 // returns error in case of any failure
-// parameter sync represents the mode of application. If set as false all the scrips will run in single go routine, otherwise each script will run in its own go routine
+// parameter async represents the mode of application. If set as false all the scrips will run in single go routine, otherwise each script will run in its own go routine
 // note:  this is a blocking call.
-func (app *Application) Start(sync bool) error {
-	defer func() { _ = app.Stop() }()
-	if sync {
-		return app.startSync()
+func (app *Application) Start(async bool) error {
+	defer func() {
+		app.logger.Debug().Msg("exiting the codelose")
+		_ = app.Stop()
+	}()
+	if async {
+		return app.startAsync()
 	}
-	return app.startAsync()
+	return app.startSync()
 }
 
 func (app *Application) startAsync() error {
-	chs := make([]chan reader.LogEvent, app.config.BufferSize)
+	chs := make([]chan reader.LogEvent, 0)
 	for _, s := range app.scripts {
-		c := make(chan reader.LogEvent)
+		c := make(chan reader.LogEvent, app.config.BufferSize)
 		go s.RunAsync(app.ctx, c)
+		chs = append(chs, c)
 	}
 	defer func() {
 		for _, c := range chs {
@@ -85,6 +89,6 @@ func (app *Application) startSync() error {
 
 // Stop closed the application
 func (app *Application) Stop() error {
-	app.cncel()
+	app.cancel()
 	return nil
 }
