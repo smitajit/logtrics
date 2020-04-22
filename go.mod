@@ -3,6 +3,7 @@ module github.com/smitajit/logtrics
 go 1.14
 
 require (
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/pelletier/go-toml v1.2.0

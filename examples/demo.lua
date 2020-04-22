@@ -19,21 +19,26 @@ logtrics {
 
 	-- supports RE2 (https://en.wikipedia.org/wiki/RE2_(software)) regex for matching and substring extraction ---
 	-- source, matched line and extracted substrings will be passed for process callback for metrics computation --
-	expression = ".*",
+	-- example regular expression to parse hello "world"
+	expression = 'hello "(?P<first>[a-zA-z]+)"',
 
 	-- this callback function will be called for log line match based on the expression. ---
 	-- @source : source of the log. e.g, console, upd:{host:port} ... ---
 	-- @line : the log line ---
 	-- @... : the substring matched by the regular expression ---
-	process = function(source, line,  params, ...)
+	process = function(_source, line,  param1, ...)
 		local value = math.random(1,10)
-
-		-- example logging apis --
-		-- fatal("inside process. Source: %s , line: %s" , source , line)
-		-- error("inside process. Source: %s , line: %s" , source , line)
-		info("inside process. Source: %s , line: %s" , source , line)
-		-- debug("inside process. Source: %s , line: %s" , source , line)
-		-- trace("inside process. Source: %s , line: %s" , source , line)
+		if param1 == "world" then
+			-- example logging apis --
+			-- fatal("inside process. Source: %s , line: %s" , source , line)
+			-- error("inside process. Source: %s , line: %s" , source , line)
+			-- warn("inside process. Source: %s , line: %s" , source , line)
+			info("found match. Match: %s, Source: %s , line: %s" , param1, source , line)
+			-- debug("inside process. Source: %s , line: %s" , source , line)
+			-- trace("inside process. Source: %s , line: %s" , source , line)
+		else
+			info("match not found. Source: %s , line: %s, param : %s" , source , line , param1)
+		end
 
 
 		-- example graphite apis --

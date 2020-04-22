@@ -1,7 +1,6 @@
 package reader
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -9,16 +8,17 @@ import (
 	"os"
 	"strings"
 
+	"github.com/chzyer/readline"
 	"github.com/rs/zerolog"
 	"github.com/smitajit/logtrics/config"
 )
 
 var (
-	// ConsoleReaderPrompt is prompt string
+	// ConsoleReaderPrompt is the prompt for console reader
 	//nolint:gochecknoglobals
-	ConsoleReaderPrompt = " logtrics > "
+	ConsoleReaderPrompt = " logtrics \033[31m»\033[0m "
 
-	// ConsoleReaderHelp is the help text:w
+	// ConsoleReaderHelp is the help text to print on console reader startup
 	//nolint:gochecknoglobals
 	ConsoleReaderHelp = `
 ----------------------------------------------------------------------------------------
@@ -48,6 +48,7 @@ type (
 		io.Writer
 		io.Reader
 		logger zerolog.Logger
+		l      *readline.Instance
 	}
 
 	// UDP represents the log reader in UDP server mode
@@ -58,13 +59,23 @@ type (
 )
 
 // NewConsole returns a new Console runner instance
-func NewConsole(config *config.Configuration) LogReader {
-	return &Console{Reader: os.Stdin, Writer: os.Stdout, logger: config.Logger("reader: console")}
+func NewConsole(config *config.Configuration) (LogReader, error) {
+	l, err := readline.NewEx(&readline.Config{
+		Prompt:            ConsoleReaderPrompt,
+		HistoryFile:       "/tmp/readline.tmp",
+		InterruptPrompt:   "^C",
+		EOFPrompt:         "exit",
+		HistorySearchFold: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Console{Reader: os.Stdin, Writer: os.Stdout, logger: config.Logger("reader: console"), l: l}, nil
 }
 
 // Start the reader in console mode
 func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
-	reader := bufio.NewReader(c.Reader)
+	// reader := bufio.NewReader(c.Reader)
 	fmt.Fprintln(c, ConsoleReaderHelp)
 	for {
 		select {
@@ -73,13 +84,17 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 			return nil
 		default:
 			fmt.Print(ConsoleReaderPrompt)
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				cb(LogEvent{"console", "", err})
-				continue
+			// line, err := reader.ReadString('\n')
+			// if err != nil {
+			// cb(LogEvent{"console", "", err})
+			// continue
+			// }
+			// line = strings.TrimRight(line, "\r\n")
+			line, err := c.l.Readline()
+			if err == io.EOF {
+				return nil
 			}
-			line = strings.TrimRight(line, "\r\n")
-			cb(LogEvent{"console", line, nil})
+			cb(LogEvent{"console", line, err})
 		}
 	}
 }

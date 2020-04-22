@@ -67,10 +67,11 @@ func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
 		Protect: true,
 	}
 	// binding logging apis
-	l.state.SetGlobal("debug", l.state.NewFunction(l.LAPIDebug))
-	l.state.SetGlobal("error", l.state.NewFunction(l.LAPIError))
-	l.state.SetGlobal("info", l.state.NewFunction(l.LAPIInfo))
 	l.state.SetGlobal("fatal", l.state.NewFunction(l.LAPIFatal))
+	l.state.SetGlobal("error", l.state.NewFunction(l.LAPIError))
+	l.state.SetGlobal("warn", l.state.NewFunction(l.LAPIWarn))
+	l.state.SetGlobal("info", l.state.NewFunction(l.LAPIInfo))
+	l.state.SetGlobal("debug", l.state.NewFunction(l.LAPIDebug))
 	l.state.SetGlobal("trace", l.state.NewFunction(l.LAPITrace))
 
 	// binding graphite api
@@ -121,6 +122,21 @@ func (l *Logtric) LAPIDebug(L *lua.LState) int {
 		args = append(args, v.String())
 	}
 	l.logger.Debug().Msgf(L.ToString(1), args...)
+	return 0
+}
+
+// LAPIWarn represent the lua binding for error() function call
+func (l *Logtric) LAPIWarn(L *lua.LState) int {
+	n := L.GetTop()
+	if n < 1 {
+		L.RaiseError("parameter required for error")
+	}
+	args := make([]interface{}, 0)
+	for i := 2; i <= n; i++ {
+		v := L.Get(i)
+		args = append(args, v.String())
+	}
+	l.logger.Warn().Msgf(L.ToString(1), args...)
 	return 0
 }
 

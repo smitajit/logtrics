@@ -120,10 +120,13 @@ func scripts(config *config.Configuration) ([]string, error) {
 
 func runConsole(config *config.Configuration) error {
 	scripts, err := scripts(config)
-	if nil != err {
+	if err != nil {
 		return err
 	}
-	reader := reader.NewConsole(config)
+	reader, err := reader.NewConsole(config)
+	if err != nil {
+		return err
+	}
 	app, err := pkg.NewApplication(config, reader, scripts...)
 	if err != nil {
 		log.Fatal(err)
