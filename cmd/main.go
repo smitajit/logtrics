@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/smitajit/logtrics/config"
 	"github.com/smitajit/logtrics/pkg"
@@ -83,17 +86,27 @@ func init() {
 }
 
 func run() error {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// adding interrupt handler
+	go func() {
+		c := make(chan os.Signal, 2)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		<-c
+		cancel()
+	}()
+
 	config := &config.Configuration{}
 	if err := viper.Unmarshal(config); err != nil {
 		return err
 	}
 	switch config.Mode {
 	case "console":
-		return runConsole(config)
+		return runConsole(ctx, config)
 	case "filetail":
 		return fmt.Errorf("not implemented yet")
 	case "udp":
-		return runUDP(config)
+		return runUDP(ctx, config)
 	case "tcp":
 		return fmt.Errorf("not implemented yet")
 	default:
@@ -118,36 +131,36 @@ func scripts(config *config.Configuration) ([]string, error) {
 	return scripts, err
 }
 
-func runConsole(config *config.Configuration) error {
-	scripts, err := scripts(config)
+func runConsole(ctx context.Context, conf *config.Configuration) error {
+	scripts, err := scripts(conf)
 	if err != nil {
 		return err
 	}
-	reader, err := reader.NewConsole(config)
+	reader, err := reader.NewConsole(conf)
 	if err != nil {
 		return err
 	}
-	app, err := pkg.NewApplication(config, reader, scripts...)
+	app, err := pkg.NewApplication(conf, reader, scripts...)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := app.Start(false); err != nil {
+	if err := app.Run(ctx); err != nil {
 		log.Fatal(err)
 	}
 	return nil
 }
 
-func runUDP(config *config.Configuration) error {
-	scripts, err := scripts(config)
+func runUDP(ctx context.Context, conf *config.Configuration) error {
+	scripts, err := scripts(conf)
 	if nil != err {
 		return err
 	}
-	reader := reader.NewUDP(config)
-	app, err := pkg.NewApplication(config, reader, scripts...)
+	reader := reader.NewUDP(conf)
+	app, err := pkg.NewApplication(conf, reader, scripts...)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := app.Start(true); err != nil {
+	if err := app.RunAsync(ctx); err != nil {
 		log.Fatal(err)
 	}
 	return nil

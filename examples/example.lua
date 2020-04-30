@@ -6,7 +6,15 @@ local prefix = "logtrics.example.metrics"
 logtrics {
 	-- optional --
 	-- mainly used for logging purpose. But its better to name logtrics instances ---
-	name = "example-logtrics",
+	name = "logtrics-user-example",
+
+	-- source = "timestamp-stripper",
+
+	-- optional --
+	-- used to consume log events from sources--
+	-- sources are application and other logtrics instances--
+	-- we can consume from multiple source ---
+	-- sources = "application",
 
 	-- optional --
 	-- to override default graphite configuration
@@ -20,25 +28,32 @@ logtrics {
 	-- supports RE2 (https://en.wikipedia.org/wiki/RE2_(software)) regex for matching and substring extraction ---
 	-- source, matched line and extracted substrings will be passed for process callback for metrics computation --
 	-- example regular expression to parse hello "world"
-	expression = 'hello "(?P<first>[a-zA-z]+)"',
+	parser = {
+		type = "re2",
+		expression = 'hello "(?P<first>[a-zA-z0-9]+)"',
+	},
 
 	-- this callback function will be called for log line match based on the expression. ---
 	-- @source : source of the log. e.g, console, upd:{host:port} ... ---
 	-- @line : the log line ---
 	-- @... : the substring matched by the regular expression ---
-	process = function(_source, line,  param1, ...)
+	handler = function(fields)
+
 		local value = math.random(1,10)
-		if param1 == "world" then
-			-- example logging apis --
-			-- fatal("inside process. Source: %s , line: %s" , source , line)
-			-- error("inside process. Source: %s , line: %s" , source , line)
-			-- warn("inside process. Source: %s , line: %s" , source , line)
-			info("found match. Match: %s, Source: %s , line: %s" , param1, source , line)
-			-- debug("inside process. Source: %s , line: %s" , source , line)
-			-- trace("inside process. Source: %s , line: %s" , source , line)
-		else
-			info("match not found. Source: %s , line: %s, param : %s" , source , line , param1)
-		end
+
+		info("fields are %v" , fields)
+
+		-- if param1 == "world" then
+			-- -- example logging apis --
+			-- -- fatal("inside process. Source: %s , line: %s" , source , line)
+			-- -- error("inside process. Source: %s , line: %s" , source , line)
+			-- -- warn("inside process. Source: %s , line: %s" , source , line)
+			-- info("found match. Match: %s, Source: %s , line: %s" , param1, source , line)
+			-- -- debug("inside process. Source: %s , line: %s" , source , line)
+			-- -- trace("inside process. Source: %s , line: %s" , source , line)
+		-- else
+			-- info("match not found. Source: %s , line: %s, param : %s" , source , line , param1)
+		-- end
 
 
 		-- example graphite apis --

@@ -16,7 +16,10 @@ import (
 var (
 	// ConsoleReaderPrompt is the prompt for console reader
 	//nolint:gochecknoglobals
-	ConsoleReaderPrompt = " logtrics \033[31m»\033[0m "
+	ConsoleReaderPrompt = " logtrics \033[31m>\033[0m "
+
+	//ConsoleReaderHistory is the history file for console input lines
+	ConsoleReaderHistory = "/tmp/readline.tmp"
 
 	// ConsoleReaderHelp is the help text to print on console reader startup
 	//nolint:gochecknoglobals
@@ -62,7 +65,7 @@ type (
 func NewConsole(config *config.Configuration) (LogReader, error) {
 	l, err := readline.NewEx(&readline.Config{
 		Prompt:            ConsoleReaderPrompt,
-		HistoryFile:       "/tmp/readline.tmp",
+		HistoryFile:       ConsoleReaderHistory,
 		InterruptPrompt:   "^C",
 		EOFPrompt:         "exit",
 		HistorySearchFold: true,
@@ -75,7 +78,6 @@ func NewConsole(config *config.Configuration) (LogReader, error) {
 
 // Start the reader in console mode
 func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
-	// reader := bufio.NewReader(c.Reader)
 	fmt.Fprintln(c, ConsoleReaderHelp)
 	for {
 		select {
@@ -84,12 +86,6 @@ func (c *Console) Start(ctx context.Context, cb ReadCallBackFun) error {
 			return nil
 		default:
 			fmt.Print(ConsoleReaderPrompt)
-			// line, err := reader.ReadString('\n')
-			// if err != nil {
-			// cb(LogEvent{"console", "", err})
-			// continue
-			// }
-			// line = strings.TrimRight(line, "\r\n")
 			line, err := c.l.Readline()
 			if err == io.EOF {
 				return nil
