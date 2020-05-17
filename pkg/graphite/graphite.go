@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	goMetrics "github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/config"
+	"github.com/smitajit/logtrics/pkg/config"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -78,12 +78,11 @@ func NewGraphite(config *config.Configuration, L *lua.LState, logger zerolog.Log
 			Int("graphite.interval", config.Graphite.Interval).
 			Bool("graphite.debug", config.Graphite.Debug).
 			Msg("graphite configuration")
-		go goMetrics.Log(registry, interval, log.New(logger, "metrics---", log.Lmicroseconds))
+		go goMetrics.Log(registry, interval, log.New(logger, "metrics", log.Lmicroseconds))
 	}
 	go func() {
-		for _ = range time.Tick(interval) {
-			err := graphite.Once(c)
-			if err != nil {
+		for range time.Tick(interval) {
+			if err := graphite.Once(c); err != nil {
 				logger.Error().Err(err).Msg("failed to send graphite metrics")
 			}
 		}

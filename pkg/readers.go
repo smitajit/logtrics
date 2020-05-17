@@ -1,4 +1,4 @@
-package reader
+package pkg
 
 import (
 	"context"
@@ -62,7 +62,7 @@ type (
 )
 
 // NewConsole returns a new Console runner instance
-func NewConsole(config *config.Configuration) (LogReader, error) {
+func NewConsole(logger zerolog.Logger) (LogReader, error) {
 	l, err := readline.NewEx(&readline.Config{
 		Prompt:            ConsoleReaderPrompt,
 		HistoryFile:       ConsoleReaderHistory,
@@ -73,7 +73,7 @@ func NewConsole(config *config.Configuration) (LogReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Console{Reader: os.Stdin, Writer: os.Stdout, logger: config.Logger("reader: console"), readline: l}, nil
+	return &Console{Reader: os.Stdin, Writer: os.Stdout, logger: logger, readline: l}, nil
 }
 
 // Start the reader in console mode

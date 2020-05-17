@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/config"
-	"github.com/smitajit/logtrics/pkg/reader"
+	"github.com/smitajit/logtrics/pkg/config"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -28,7 +27,6 @@ func NewScript(path string, config *config.Configuration) (*Script, error) {
 		logger:   config.Logger(path),
 	}
 	state := lua.NewState()
-	// defer state.Close()
 	state.SetGlobal("logtrics", state.NewFunction(s.LAPILogtric))
 	if err := state.DoFile(s.Path); err != nil {
 		return nil, err
@@ -39,7 +37,7 @@ func NewScript(path string, config *config.Configuration) (*Script, error) {
 // RunAsync runs the script in async mode
 // It consumes the log event from the channel
 // note: this is a blocking call
-func (s *Script) RunAsync(ctx context.Context, c <-chan reader.LogEvent) {
+func (s *Script) RunAsync(ctx context.Context, c <-chan LogEvent) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -53,7 +51,7 @@ func (s *Script) RunAsync(ctx context.Context, c <-chan reader.LogEvent) {
 
 // Run runs the script
 // This is non blocking call
-func (s *Script) Run(ctx context.Context, event reader.LogEvent) {
+func (s *Script) Run(ctx context.Context, event LogEvent) {
 	logger := s.config.Logger(s.Path)
 	logger.Debug().Msgf("executing script")
 	for _, l := range s.logtrics {

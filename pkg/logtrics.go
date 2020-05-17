@@ -2,12 +2,14 @@ package pkg
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/config"
+	"github.com/smitajit/logtrics/pkg/config"
 	"github.com/smitajit/logtrics/pkg/graphite"
-	"github.com/smitajit/logtrics/pkg/reader"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -15,14 +17,20 @@ type (
 	// Logtric represents the logtrics instance configured in lua
 	// it stores the lua script states and provides runtime bindings to lua
 	Logtric struct {
-		name     string
-		state    *lua.LState
-		parser   Parser
+		name      string
+		state     *lua.LState
+		parser    Parser
+		handler   *lua.LFunction
+		config    *config.Configuration
+		graphite  *graphite.Graphite
+		logger    zerolog.Logger
+		scheduler *Scheduler
+	}
+
+	// Scheduler represents the scheduler config inside logtrics
+	Scheduler struct {
+		interval int
 		handler  *lua.LFunction
-		config   *config.Configuration
-		graphite *graphite.Graphite
-		logger   zerolog.Logger
-		EmitCh   chan reader.LogEvent
 	}
 )
 
@@ -46,7 +54,13 @@ func NewLogtric(script string, config *config.Configuration, state *lua.LState, 
 	h := table.RawGet(lua.LString("handler"))
 	handler, ok := h.(*lua.LFunction)
 	if !ok || handler == nil {
-		return nil, fmt.Errorf("process not found")
+		return nil, fmt.Errorf("handler not found")
+	}
+
+	s := table.RawGet(lua.LString("scheduler"))
+	scheduler, err := scheduler(s)
+	if err != nil {
+		return nil, err
 	}
 
 	config, err = config.Merge(table)
@@ -55,23 +69,24 @@ func NewLogtric(script string, config *config.Configuration, state *lua.LState, 
 	}
 
 	l := &Logtric{
-		name:    name,
-		state:   state,
-		config:  config,
-		handler: handler,
-		parser:  parser,
-		logger:  config.Logger(fmt.Sprintf("%s:[%s]", script, name)),
+		name:      name,
+		state:     state,
+		config:    config,
+		handler:   handler,
+		parser:    parser,
+		scheduler: scheduler,
+		logger:    config.Logger(fmt.Sprintf("%s:[%s]", script, name)),
+	}
+
+	l.bindApis()
+
+	if l.scheduler != nil {
+		l.scheduler.Start()
 	}
 	return l, nil
 }
 
-// Run runs the Logtric instance
-func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
-	p := lua.P{
-		Fn:      l.handler,
-		NRet:    0,
-		Protect: true,
-	}
+func (l *Logtric) bindApis() {
 	// binding logging apis
 	l.state.SetGlobal("fatal", l.state.NewFunction(l.LAPIFatal))
 	l.state.SetGlobal("error", l.state.NewFunction(l.LAPIError))
@@ -80,11 +95,62 @@ func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
 	l.state.SetGlobal("debug", l.state.NewFunction(l.LAPIDebug))
 	l.state.SetGlobal("trace", l.state.NewFunction(l.LAPITrace))
 
-	// bindings for emit api
-	l.state.SetGlobal("emit", l.state.NewFunction(l.LAPIEmit))
-
 	// binding graphite api
 	l.state.SetGlobal("graphite", l.state.NewFunction(l.LAPIGraphite))
+}
+
+func (s *Scheduler) Start() {
+	ticker := time.NewTicker(time.Second * time.Duration(s.interval))
+	go func() {
+		for range ticker.C {
+			state := lua.NewState()
+			p := lua.P{
+				Fn:      s.handler,
+				NRet:    0,
+				Protect: true,
+			}
+			if err := state.CallByParam(p); err != nil {
+				fmt.Println(err)
+			}
+		}
+	}()
+}
+
+// TODO(smitajit) handle it properly
+func scheduler(v lua.LValue) (*Scheduler, error) {
+	table, ok := v.(*lua.LTable)
+	if !ok {
+		return nil, errors.New("invalid scheduler config")
+	}
+
+	i := table.RawGet(lua.LString("interval"))
+	in, ok := i.(lua.LNumber)
+	if !ok {
+		return nil, errors.New("invalid scheduler config, interval is wrong")
+	}
+	interval, err := strconv.Atoi(in.String())
+	if err != nil {
+		return nil, errors.New("invalid scheduler config, interval is wrong1")
+	}
+
+	h := table.RawGet(lua.LString("handler"))
+	handler, ok := h.(*lua.LFunction)
+	if !ok {
+		return nil, errors.New("invalid scheduler config, handler is wrong")
+	}
+	return &Scheduler{
+		interval: interval,
+		handler:  handler,
+	}, nil
+}
+
+// Run runs the Logtric instance
+func (l *Logtric) Run(ctx context.Context, event LogEvent) error {
+	p := lua.P{
+		Fn:      l.handler,
+		NRet:    0,
+		Protect: true,
+	}
 
 	// args := []string{event.Source, event.Line}
 	substrings, ok := l.parser.FindSubStrings(event.Line)
@@ -105,13 +171,6 @@ func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
 		return err
 	}
 	return nil
-}
-
-// LAPIEmit represents the lua binding for emit api call
-func (l *Logtric) LAPIEmit(L *lua.LState) int {
-	log := L.ToString(1)
-	l.EmitCh <- reader.LogEvent{Source: l.name, Line: log, Err: nil}
-	return 1
 }
 
 func (l *Logtric) parseLogArgs(name string, L *lua.LState) (msg string, args []interface{}) {

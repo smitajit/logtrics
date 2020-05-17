@@ -76,7 +76,7 @@ func (c *Configuration) Merge(table *lua.LTable) (*Configuration, error) {
 			return
 		}
 		switch k {
-		case lua.LString("handler"), lua.LString("parser"), lua.LString("name"):
+		case lua.LString("handler"), lua.LString("parser"), lua.LString("name"), lua.LString("scheduler"):
 			//ignore
 		case lua.LString("graphite"):
 			if merged.Graphite == nil {

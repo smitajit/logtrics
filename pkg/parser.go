@@ -39,11 +39,10 @@ func NewParser(table *lua.LTable) (Parser, error) {
 
 // FindSubStrings extracts the sub strings from the string
 func (p *RE2) FindSubStrings(s string) (map[string]string, bool) {
-	ok := p.regexp.MatchString(s)
-	if !ok {
+	if ok := p.regexp.MatchString(s); !ok {
 		return nil, false
 	}
-	subs := make(map[string]string)
+	results := make(map[string]string)
 	matches := p.regexp.FindStringSubmatch(s)
 	n := p.regexp.SubexpNames()
 	for i, exp := range n {
@@ -53,7 +52,7 @@ func (p *RE2) FindSubStrings(s string) (map[string]string, bool) {
 		if exp == "" {
 			continue
 		}
-		subs[exp] = matches[i]
+		results[exp] = matches[i]
 	}
-	return subs, true
+	return results, true
 }

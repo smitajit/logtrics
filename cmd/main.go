@@ -6,23 +6,20 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 
-	"github.com/smitajit/logtrics/config"
 	"github.com/smitajit/logtrics/pkg"
-	"github.com/smitajit/logtrics/pkg/reader"
+	"github.com/smitajit/logtrics/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const (
-	// DefaultConfigPath is the default config path
-	DefaultConfigPath = "/etc/logtrics/logtrics.toml"
+	// defaultConfigPath is the default config path
+	defaultConfigPath = "/etc/logtrics/logtrics.toml"
 
-	//DefaultScriptDir is the default location from where all the scripts will be read
-	DefaultScriptDir = "/etc/logtrics/scripts/"
+	//defaultScriptDir is the default location from where all the scripts will be read
+	defaultScriptDir = "/etc/logtrics/scripts/"
 )
 
 var (
@@ -40,12 +37,12 @@ var (
 func init() {
 	flags := cmd.PersistentFlags()
 
-	flags.StringP("config", "c", DefaultConfigPath, "config file path")
+	flags.StringP("config", "c", defaultConfigPath, "config file path")
 	flags.StringP("mode", "m", "", `run modes, choices are "console", "filetail", "udp", "tcp"'`)
 	flags.Int("buffer.size", 0, "go channel default buffer size")
 
 	flags.StringP("script.file", "f", "", "lua script file path")
-	flags.StringP("script.dir", "d", DefaultScriptDir, "lua scripts directory")
+	flags.StringP("script.dir", "d", defaultScriptDir, "lua scripts directory")
 
 	flags.String("logging.level", "info", "logging level")
 	flags.String("logging.type", "console", `logging type, choices are "syslog", "console"`)
@@ -114,33 +111,12 @@ func run() error {
 	}
 }
 
-func scripts(config *config.Configuration) ([]string, error) {
-	if config.ScriptFile != "" {
-		return []string{config.ScriptFile}, nil
-	}
-	scripts := make([]string, 0)
-	err := filepath.Walk(config.ScriptDir, func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, ".lua") {
-			scripts = append(scripts, path)
-		}
-		return nil
-	})
-	if len(scripts) == 0 {
-		return nil, fmt.Errorf("no scripts found")
-	}
-	return scripts, err
-}
-
 func runConsole(ctx context.Context, conf *config.Configuration) error {
-	scripts, err := scripts(conf)
+	reader, err := pkg.NewConsole(conf.Logger("reader: console"))
 	if err != nil {
 		return err
 	}
-	reader, err := reader.NewConsole(conf)
-	if err != nil {
-		return err
-	}
-	app, err := pkg.NewApplication(conf, reader, scripts...)
+	app, err := pkg.NewApplication(conf, reader)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -151,12 +127,8 @@ func runConsole(ctx context.Context, conf *config.Configuration) error {
 }
 
 func runUDP(ctx context.Context, conf *config.Configuration) error {
-	scripts, err := scripts(conf)
-	if nil != err {
-		return err
-	}
-	reader := reader.NewUDP(conf)
-	app, err := pkg.NewApplication(conf, reader, scripts...)
+	reader := pkg.NewUDP(conf)
+	app, err := pkg.NewApplication(conf, reader)
 	if err != nil {
 		log.Fatal(err)
 	}

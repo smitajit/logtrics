@@ -2,32 +2,40 @@ package pkg
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/config"
-	"github.com/smitajit/logtrics/pkg/reader"
+	"github.com/smitajit/logtrics/pkg/config"
 )
 
 // Application represents this application
 // it stores all the application states and maintains the runtime
 type Application struct {
-	reader  reader.LogReader
+	readers []LogReader
 	scripts []*Script
 	config  *config.Configuration
 	logger  zerolog.Logger
 }
 
 //NewApplication returns a new Application instance
-func NewApplication(config *config.Configuration, reader reader.LogReader, scripts ...string) (*Application, error) {
+func NewApplication(config *config.Configuration, readers ...LogReader) (*Application, error) {
 	app := &Application{
-		reader:  reader,
+		readers: readers,
 		scripts: make([]*Script, 0),
 		config:  config,
 		logger:  config.Logger("application"),
 	}
-	for _, s := range scripts {
-		script, err := NewScript(s, config)
+
+	files, err := scriptsFiles(config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get script files")
+	}
+	for _, f := range files {
+		script, err := NewScript(f, config)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to initialize app")
 		}
@@ -36,14 +44,13 @@ func NewApplication(config *config.Configuration, reader reader.LogReader, scrip
 	return app, nil
 }
 
-// RunAsync runs the application
+// RunAsync runs the application in async mode.
 // returns error in case of any failure
-// parameter async represents the mode of application. If set as false all the scrips will run in single go routine, otherwise each script will run in its own go routine
 // note:  this is a blocking call.
 func (app *Application) RunAsync(ctx context.Context) error {
-	chs := make([]chan reader.LogEvent, 0)
+	chs := make([]chan LogEvent, 0)
 	for _, s := range app.scripts {
-		c := make(chan reader.LogEvent, app.config.BufferSize)
+		c := make(chan LogEvent, app.config.BufferSize)
 		go s.RunAsync(ctx, c)
 		chs = append(chs, c)
 	}
@@ -52,19 +59,19 @@ func (app *Application) RunAsync(ctx context.Context) error {
 			close(c)
 		}
 	}()
-	f := func(event reader.LogEvent) {
+	f := func(event LogEvent) {
 		for _, c := range chs {
 			c <- event
 		}
 	}
-	return app.reader.Start(ctx, f)
+	return app.run(ctx, f)
 }
 
 // Run runs the application
 // returns error in case of any failure
 // note:  this is a blocking call.
 func (app *Application) Run(ctx context.Context) error {
-	f := func(event reader.LogEvent) {
+	f := func(event LogEvent) {
 		if event.Err != nil {
 			//log
 			return
@@ -73,5 +80,31 @@ func (app *Application) Run(ctx context.Context) error {
 			s.Run(ctx, event)
 		}
 	}
-	return app.reader.Start(ctx, f)
+	return app.run(ctx, f)
+}
+
+func (app *Application) run(ctx context.Context, f func(event LogEvent)) error {
+	for _, reader := range app.readers {
+		if err := reader.Start(ctx, f); err != nil {
+			return errors.Wrap(err, "failed to start the readers")
+		}
+	}
+	return nil
+}
+
+func scriptsFiles(config *config.Configuration) ([]string, error) {
+	if config.ScriptFile != "" {
+		return []string{config.ScriptFile}, nil
+	}
+	scripts := make([]string, 0)
+	err := filepath.Walk(config.ScriptDir, func(path string, info os.FileInfo, err error) error {
+		if strings.HasSuffix(path, ".lua") {
+			scripts = append(scripts, path)
+		}
+		return nil
+	})
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("no scripts found")
+	}
+	return scripts, err
 }

@@ -7,14 +7,8 @@ logtrics {
 	-- optional --
 	-- mainly used for logging purpose. But its better to name logtrics instances ---
 	name = "logtrics-user-example",
-
 	-- source = "timestamp-stripper",
 
-	-- optional --
-	-- used to consume log events from sources--
-	-- sources are application and other logtrics instances--
-	-- we can consume from multiple source ---
-	-- sources = "application",
 
 	-- optional --
 	-- to override default graphite configuration
@@ -34,15 +28,10 @@ logtrics {
 	},
 
 	-- this callback function will be called for log line match based on the expression. ---
-	-- @source : source of the log. e.g, console, upd:{host:port} ... ---
-	-- @line : the log line ---
-	-- @... : the substring matched by the regular expression ---
-	handler = function(fields)
-
+	-- @source : fields contains all the metainfo ---
+	handler = function(event) 
 		local value = math.random(1,10)
-
-		info("fields are %v" , fields)
-
+		info("fields are %v" , event)
 		-- if param1 == "world" then
 			-- -- example logging apis --
 			-- -- fatal("inside process. Source: %s , line: %s" , source , line)
@@ -63,5 +52,14 @@ logtrics {
 		-- graphite().gauge(prefix .. ".gauge.value").update(value)
 		-- graphite().meter(prefix .. ".meter.value").mark(value)
 		end,
+
+	scheduler = {
+		interval = 5,
+		handler = function()
+		   info("scheduler is being called")
+		   local result = os.execute("echo hallo")
+		   info("scheduler is being called %s " , result)
+		   end,
+	   }
 }
 
