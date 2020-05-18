@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smitajit/logtrics/pkg/config"
 	"github.com/smitajit/logtrics/pkg/graphite"
+	"github.com/smitajit/logtrics/pkg/reader"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -99,6 +100,7 @@ func (l *Logtric) bindApis() {
 	l.state.SetGlobal("graphite", l.state.NewFunction(l.LAPIGraphite))
 }
 
+// Start ...
 func (s *Scheduler) Start() {
 	ticker := time.NewTicker(time.Second * time.Duration(s.interval))
 	go func() {
@@ -145,7 +147,7 @@ func scheduler(v lua.LValue) (*Scheduler, error) {
 }
 
 // Run runs the Logtric instance
-func (l *Logtric) Run(ctx context.Context, event LogEvent) error {
+func (l *Logtric) Run(ctx context.Context, event reader.LogEvent) error {
 	p := lua.P{
 		Fn:      l.handler,
 		NRet:    0,
@@ -173,21 +175,21 @@ func (l *Logtric) Run(ctx context.Context, event LogEvent) error {
 	return nil
 }
 
-func (l *Logtric) parseLogArgs(name string, L *lua.LState) (msg string, args []interface{}) {
-	top := L.GetTop()
+func (l *Logtric) parseLogArgs(name string, state *lua.LState) (msg string, args []interface{}) {
+	top := state.GetTop()
 	if top < 1 {
-		L.RaiseError("parameter required for " + name)
+		state.RaiseError("parameter required for " + name)
 	}
-	msg = L.ToString(1)
+	msg = state.ToString(1)
 	for i := 2; i <= top; i++ {
-		v := L.Get(i)
+		v := state.Get(i)
 		t, ok := v.(*lua.LTable)
 		if ok {
 			str := "["
 			t.ForEach(func(k, v lua.LValue) {
-				str = str + fmt.Sprintf(" %s = %s, ", k.String(), v.String())
+				str += fmt.Sprintf(" %s = %s, ", k.String(), v.String())
 			})
-			str = str + "]"
+			str += "]"
 			args = append(args, str)
 		} else {
 			args = append(args, v.String())
@@ -197,61 +199,61 @@ func (l *Logtric) parseLogArgs(name string, L *lua.LState) (msg string, args []i
 }
 
 // LAPIInfo represents the lua binding for info() function call
-func (l *Logtric) LAPIInfo(L *lua.LState) int {
-	msg, args := l.parseLogArgs("info", L)
+func (l *Logtric) LAPIInfo(state *lua.LState) int {
+	msg, args := l.parseLogArgs("info", state)
 	l.logger.Info().Msgf(msg, args...)
 	return 0
 }
 
 // LAPIDebug represents the lua binding for debug() function call
-func (l *Logtric) LAPIDebug(L *lua.LState) int {
-	msg, args := l.parseLogArgs("debug", L)
+func (l *Logtric) LAPIDebug(state *lua.LState) int {
+	msg, args := l.parseLogArgs("debug", state)
 	l.logger.Debug().Msgf(msg, args...)
 	return 0
 }
 
 // LAPIWarn represent the lua binding for error() function call
-func (l *Logtric) LAPIWarn(L *lua.LState) int {
-	msg, args := l.parseLogArgs("warn", L)
+func (l *Logtric) LAPIWarn(state *lua.LState) int {
+	msg, args := l.parseLogArgs("warn", state)
 	l.logger.Warn().Msgf(msg, args...)
 	return 0
 }
 
 // LAPIError represent the lua binding for error() function call
-func (l *Logtric) LAPIError(L *lua.LState) int {
-	msg, args := l.parseLogArgs("error", L)
+func (l *Logtric) LAPIError(state *lua.LState) int {
+	msg, args := l.parseLogArgs("error", state)
 	l.logger.Error().Msgf(msg, args...)
 	return 0
 }
 
 // LAPIFatal represent the lua binding for fatal() function call
-func (l *Logtric) LAPIFatal(L *lua.LState) int {
-	msg, args := l.parseLogArgs("fatal", L)
+func (l *Logtric) LAPIFatal(state *lua.LState) int {
+	msg, args := l.parseLogArgs("fatal", state)
 	l.logger.Fatal().Msgf(msg, args...)
 	return 0
 }
 
 // LAPITrace represent the lua binding for fatal() function call
-func (l *Logtric) LAPITrace(L *lua.LState) int {
-	msg, args := l.parseLogArgs("trace", L)
+func (l *Logtric) LAPITrace(state *lua.LState) int {
+	msg, args := l.parseLogArgs("trace", state)
 	l.logger.Trace().Msgf(msg, args...)
 	return 0
 }
 
 // LAPIGraphite is represents the lua binding for graphite() api call
-func (l *Logtric) LAPIGraphite(L *lua.LState) int {
+func (l *Logtric) LAPIGraphite(state *lua.LState) int {
 	if l.graphite == nil {
-		g, err := graphite.NewGraphite(l.config, L, l.logger)
+		g, err := graphite.NewGraphite(l.config, state, l.logger)
 		if err != nil {
-			L.RaiseError(err.Error())
+			state.RaiseError(err.Error())
 		}
 		l.graphite = g
 	}
-	table := L.NewTable()
-	L.SetField(table, "counter", L.NewFunction(l.graphite.LAPICounter))
-	L.SetField(table, "timer", L.NewFunction(l.graphite.LAPITimer))
-	L.SetField(table, "gauge", L.NewFunction(l.graphite.LAPIGauge))
-	L.SetField(table, "meter", L.NewFunction(l.graphite.LAPIMeter))
-	L.Push(table)
+	table := state.NewTable()
+	state.SetField(table, "counter", state.NewFunction(l.graphite.LAPICounter))
+	state.SetField(table, "timer", state.NewFunction(l.graphite.LAPITimer))
+	state.SetField(table, "gauge", state.NewFunction(l.graphite.LAPIGauge))
+	state.SetField(table, "meter", state.NewFunction(l.graphite.LAPIMeter))
+	state.Push(table)
 	return 1
 }

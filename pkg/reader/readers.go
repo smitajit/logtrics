@@ -1,3 +1,4 @@
+// Package reader is responsible for reading log line from different data sources
 package reader
 
 import (
@@ -19,6 +20,7 @@ var (
 	ConsoleReaderPrompt = " logtrics \033[31m>\033[0m "
 
 	//ConsoleReaderHistory is the history file for console input lines
+	//nolint:gochecknoglobals
 	ConsoleReaderHistory = "/tmp/readline.tmp"
 
 	// ConsoleReaderHelp is the help text to print on console reader startup
@@ -121,11 +123,11 @@ func (s *UDP) Start(ctx context.Context, cb ReadCallBackFun) error {
 			return nil
 		default:
 			b := make([]byte, 1024)
-			rlen, remote, err := conn.ReadFromUDP(b[:])
+			len, remote, err := conn.ReadFromUDP(b)
 			if err != nil {
 				cb(LogEvent{fmt.Sprintf("UDP:%s", remote), "", err})
 			}
-			line := strings.TrimSpace(string(b[:rlen]))
+			line := strings.TrimSpace(string(b[:len]))
 			line = strings.TrimSuffix(line, "\r\n")
 			cb(LogEvent{fmt.Sprintf("UDP:%s", remote), line, nil})
 		}

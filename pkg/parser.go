@@ -34,7 +34,6 @@ func NewParser(table *lua.LTable) (Parser, error) {
 	default:
 		return nil, fmt.Errorf("parser type not found")
 	}
-
 }
 
 // FindSubStrings extracts the sub strings from the string

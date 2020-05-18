@@ -1,3 +1,4 @@
+// Package config is responsible for providing configuration
 package config
 
 import (
@@ -169,7 +170,6 @@ func (c *Configuration) Logger(source string) (logger zerolog.Logger) {
 		logger = zerolog.New(zerolog.SyslogLevelWriter(writer))
 	default:
 		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
-
 	}
 	return logger.With().Timestamp().Str("source", source).Logger().Level(level)
 }

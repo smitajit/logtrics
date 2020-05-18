@@ -1,3 +1,4 @@
+// Package graphite is responsible for pushing metrics to graphite
 package graphite
 
 import (
@@ -50,7 +51,7 @@ type (
 
 // NewGraphite returns a new graphite instance
 // It starts the thread which published the metrics in regular interval (config.Graphite.Interval)
-func NewGraphite(config *config.Configuration, L *lua.LState, logger zerolog.Logger) (*Graphite, error) {
+func NewGraphite(config *config.Configuration, state *lua.LState, logger zerolog.Logger) (*Graphite, error) {
 	var (
 		registry = goMetrics.NewRegistry()
 		interval = time.Second * time.Duration(config.Graphite.Interval)
@@ -97,55 +98,55 @@ func NewGraphite(config *config.Configuration, L *lua.LState, logger zerolog.Log
 }
 
 // LAPICounter is lua binding for counter function on the graphite instance
-func (g *Graphite) LAPICounter(L *lua.LState) int {
-	metricname := L.ToString(1)
+func (g *Graphite) LAPICounter(state *lua.LState) int {
+	metricname := state.ToString(1)
 	if metricname == "" {
-		L.RaiseError("graphite: invalid counter name")
+		state.RaiseError("graphite: invalid counter name")
 	}
 	c := g.counter(metricname)
-	table := L.NewTable()
-	L.SetField(table, "inc", L.NewFunction(c.LAPIInc))
-	L.SetField(table, "dec", L.NewFunction(c.LAPIDec))
-	L.Push(table)
+	table := state.NewTable()
+	state.SetField(table, "inc", state.NewFunction(c.LAPIInc))
+	state.SetField(table, "dec", state.NewFunction(c.LAPIDec))
+	state.Push(table)
 	return 1
 }
 
 // LAPIGauge is the lua biding for gauge function call on the graphite instance
-func (g *Graphite) LAPIGauge(L *lua.LState) int {
-	metricname := L.ToString(1)
+func (g *Graphite) LAPIGauge(state *lua.LState) int {
+	metricname := state.ToString(1)
 	if metricname == "" {
-		L.RaiseError("graphite: invalid gauge name")
+		state.RaiseError("graphite: invalid gauge name")
 	}
 	m := g.gauge(metricname)
-	table := L.NewTable()
-	L.SetField(table, "update", L.NewFunction(m.LAPIUpdate))
-	L.Push(table)
+	table := state.NewTable()
+	state.SetField(table, "update", state.NewFunction(m.LAPIUpdate))
+	state.Push(table)
 	return 1
 }
 
 // LAPITimer is the lua binding for timer function call on the graphite instance
-func (g *Graphite) LAPITimer(L *lua.LState) int {
-	metricname := L.ToString(1)
+func (g *Graphite) LAPITimer(state *lua.LState) int {
+	metricname := state.ToString(1)
 	if metricname == "" {
-		L.RaiseError("graphite: invalid timer name")
+		state.RaiseError("graphite: invalid timer name")
 	}
 	m := g.timer(metricname)
-	table := L.NewTable()
-	L.SetField(table, "update", L.NewFunction(m.LAPIUpdate))
-	L.Push(table)
+	table := state.NewTable()
+	state.SetField(table, "update", state.NewFunction(m.LAPIUpdate))
+	state.Push(table)
 	return 1
 }
 
 // LAPIMeter is the lua binding for the meter function call on the graphite instance
-func (g *Graphite) LAPIMeter(L *lua.LState) int {
-	metricname := L.ToString(1)
+func (g *Graphite) LAPIMeter(state *lua.LState) int {
+	metricname := state.ToString(1)
 	if metricname == "" {
-		L.RaiseError("graphite: invalid meter name")
+		state.RaiseError("graphite: invalid meter name")
 	}
 	m := g.meter(metricname)
-	table := L.NewTable()
-	L.SetField(table, "mark", L.NewFunction(m.LAPIMark))
-	L.Push(table)
+	table := state.NewTable()
+	state.SetField(table, "mark", state.NewFunction(m.LAPIMark))
+	state.Push(table)
 	return 1
 }
 
@@ -182,36 +183,36 @@ func (g *Graphite) meter(name string) *Meter {
 }
 
 // LAPIUpdate is lua binding for update function call on the timer instance
-func (t *Timer) LAPIUpdate(L *lua.LState) int {
-	i := L.ToInt64(1)
+func (t *Timer) LAPIUpdate(state *lua.LState) int {
+	i := state.ToInt64(1)
 	t.timer.Update(time.Duration(i))
 	return 1
 }
 
 // LAPIUpdate is lua binding for update function call on the gauge instance
-func (g *Gauge) LAPIUpdate(L *lua.LState) int {
-	i := L.ToInt64(1)
+func (g *Gauge) LAPIUpdate(state *lua.LState) int {
+	i := state.ToInt64(1)
 	g.gauge.Update(i)
 	return 1
 }
 
 // LAPIMark is the lua binding for mark function call on the meter instance
-func (g *Meter) LAPIMark(L *lua.LState) int {
-	i := L.ToInt64(1)
+func (g *Meter) LAPIMark(state *lua.LState) int {
+	i := state.ToInt64(1)
 	g.meter.Mark(i)
 	return 1
 }
 
 // LAPIInc is the lua binding for inc function call
-func (c *Counter) LAPIInc(L *lua.LState) int {
-	i := L.ToInt64(1)
+func (c *Counter) LAPIInc(state *lua.LState) int {
+	i := state.ToInt64(1)
 	c.counter.Inc(i)
 	return 0
 }
 
 // LAPIDec is the lua call back for dec function call
-func (c *Counter) LAPIDec(L *lua.LState) int {
-	i := L.ToInt64(1)
+func (c *Counter) LAPIDec(state *lua.LState) int {
+	i := state.ToInt64(1)
 	c.counter.Dec(i)
 	return 0
 }

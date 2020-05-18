@@ -10,6 +10,7 @@ import (
 
 	"github.com/smitajit/logtrics/pkg"
 	"github.com/smitajit/logtrics/pkg/config"
+	"github.com/smitajit/logtrics/pkg/reader"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,6 +35,7 @@ var (
 	}
 )
 
+//nolint:gochecknoinits
 func init() {
 	flags := cmd.PersistentFlags()
 
@@ -83,7 +85,6 @@ func init() {
 }
 
 func run() error {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	// adding interrupt handler
 	go func() {
@@ -112,7 +113,7 @@ func run() error {
 }
 
 func runConsole(ctx context.Context, conf *config.Configuration) error {
-	reader, err := pkg.NewConsole(conf.Logger("reader: console"))
+	reader, err := reader.NewConsole(conf)
 	if err != nil {
 		return err
 	}
@@ -127,7 +128,7 @@ func runConsole(ctx context.Context, conf *config.Configuration) error {
 }
 
 func runUDP(ctx context.Context, conf *config.Configuration) error {
-	reader := pkg.NewUDP(conf)
+	reader := reader.NewUDP(conf)
 	app, err := pkg.NewApplication(conf, reader)
 	if err != nil {
 		log.Fatal(err)

@@ -1,3 +1,4 @@
+// Package pkg is responsible for providing apis for logtrics
 package pkg
 
 import (
@@ -10,19 +11,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smitajit/logtrics/pkg/config"
+	"github.com/smitajit/logtrics/pkg/reader"
 )
 
 // Application represents this application
 // it stores all the application states and maintains the runtime
 type Application struct {
-	readers []LogReader
+	readers []reader.LogReader
 	scripts []*Script
 	config  *config.Configuration
 	logger  zerolog.Logger
 }
 
 //NewApplication returns a new Application instance
-func NewApplication(config *config.Configuration, readers ...LogReader) (*Application, error) {
+func NewApplication(config *config.Configuration, readers ...reader.LogReader) (*Application, error) {
 	app := &Application{
 		readers: readers,
 		scripts: make([]*Script, 0),
@@ -48,9 +50,9 @@ func NewApplication(config *config.Configuration, readers ...LogReader) (*Applic
 // returns error in case of any failure
 // note:  this is a blocking call.
 func (app *Application) RunAsync(ctx context.Context) error {
-	chs := make([]chan LogEvent, 0)
+	chs := make([]chan reader.LogEvent, 0)
 	for _, s := range app.scripts {
-		c := make(chan LogEvent, app.config.BufferSize)
+		c := make(chan reader.LogEvent, app.config.BufferSize)
 		go s.RunAsync(ctx, c)
 		chs = append(chs, c)
 	}
@@ -59,7 +61,7 @@ func (app *Application) RunAsync(ctx context.Context) error {
 			close(c)
 		}
 	}()
-	f := func(event LogEvent) {
+	f := func(event reader.LogEvent) {
 		for _, c := range chs {
 			c <- event
 		}
@@ -71,7 +73,7 @@ func (app *Application) RunAsync(ctx context.Context) error {
 // returns error in case of any failure
 // note:  this is a blocking call.
 func (app *Application) Run(ctx context.Context) error {
-	f := func(event LogEvent) {
+	f := func(event reader.LogEvent) {
 		if event.Err != nil {
 			//log
 			return
@@ -83,7 +85,7 @@ func (app *Application) Run(ctx context.Context) error {
 	return app.run(ctx, f)
 }
 
-func (app *Application) run(ctx context.Context, f func(event LogEvent)) error {
+func (app *Application) run(ctx context.Context, f func(event reader.LogEvent)) error {
 	for _, reader := range app.readers {
 		if err := reader.Start(ctx, f); err != nil {
 			return errors.Wrap(err, "failed to start the readers")

@@ -37,7 +37,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	@golangci-lint run -E golint -E gofmt -E gochecknoglobals -E unparam -E misspell --exclude-use-default=false ./...
+	@golangci-lint run --exclude-use-default=false ./...
 
 .PHONY: test
 test: cover vet fmt lint
