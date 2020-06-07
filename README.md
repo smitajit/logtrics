@@ -25,24 +25,7 @@ Flags:
       --udp.host string         udp server listening host (default "127.0.0.1")
       --udp.port int            udp server listening port (default 4002)
   -v, --version                 version for logtrics
-
 ```
-logtrics also reads configuration from `/etc/logtrics/config.toml`
-[Sample](./examples/config.toml)
-
-### Installation
-```
-git clone https://github.com/smitajit/logtrics.git
-cd logtrics
-make & sudo make install
-```
-
-### Run
-```
-logtrics
-```
-
-### Modes
 
 #### console
 In this mode, the log lines can be provided to the console prompt to debug the scripts.
@@ -82,9 +65,8 @@ logtrics {
 		-- graphite().meter(prefix .. ".meter.value").mark(value)
 		end,
 }
+[example](./examples/scripts/logtrics.lua)
 
 ```
-[sample](./examples/scripts/logtrics.lua)
-
-### [TODO](./TODO.md)
+[TODOs](./TODO.md)
 
