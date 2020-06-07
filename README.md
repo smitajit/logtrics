@@ -25,21 +25,6 @@ Flags:
       --udp.host string         udp server listening host (default "127.0.0.1")
       --udp.port int            udp server listening port (default 4002)
   -v, --version                 version for logtrics
-
-```
-logtrics also reads configuration from `/etc/logtrics/config.toml`
-[Sample](./examples/config.toml)
-
-### Installation
-```
-git clone https://github.com/smitajit/logtrics.git
-cd logtrics
-make & sudo make install
-```
-
-### Run
-```
-logtrics
 ```
 
 ### Modes
