@@ -17,8 +17,10 @@ $(APP_BIN): $(SRC_FILES) ./cmd/logtrics/main.go
 	@go build  -ldflags '-w -s -X main.BuildDate=$(shell date +%F)' -o $@ ./cmd/logtrics/main.go
 
 $(PREFIX)/bin/$(APP_BIN): $(APP_BIN)
+	mkdir -p /etc/logtrics/scripts
+	cp ./examples/config.toml /etc/logtrics
+	cp ./examples/scripts/logtrics.lua /etc/logtrics/scripts
 	install -p -D -m 0755 $< $@
-
 
 coverage.out: $(TEST_FILES) $(SRC_FILES)
 	@go test -v -cover -coverprofile $(@) ./...

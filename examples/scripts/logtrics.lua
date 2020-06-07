@@ -6,9 +6,7 @@ local prefix = "logtrics.example.metrics"
 logtrics {
 	-- optional --
 	-- mainly used for logging purpose. But its better to name logtrics instances ---
-	name = "logtrics-user-example",
-	-- source = "timestamp-stripper",
-
+	name = "logtrics-example",
 
 	-- optional --
 	-- to override default graphite configuration
@@ -21,14 +19,14 @@ logtrics {
 
 	-- supports RE2 (https://en.wikipedia.org/wiki/RE2_(software)) regex for matching and substring extraction ---
 	-- source, matched line and extracted substrings will be passed for process callback for metrics computation --
-	-- example regular expression to parse hello "world"
+	-- expression for hello "World". extracting word hello
 	parser = {
 		type = "re2",
 		expression = 'hello "(?P<first>[a-zA-z0-9]+)"',
 	},
 
 	-- this callback function will be called for log line match based on the expression. ---
-	-- @source : fields contains all the metainfo ---
+	-- @event : fields contains all the metainfo ---
 	handler = function(event)
 		local value = math.random(1,10)
 		info("fields are %v" , event)
@@ -52,14 +50,5 @@ logtrics {
 		-- graphite().gauge(prefix .. ".gauge.value").update(value)
 		-- graphite().meter(prefix .. ".meter.value").mark(value)
 		end,
-
-	scheduler = {
-		interval = 5,
-		handler = function()
-		   info("scheduler is being called")
-		   local result = os.execute("echo hallo")
-		   info("scheduler is being called %s " , result)
-		   end,
-	   }
 }
 
