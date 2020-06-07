@@ -3,6 +3,7 @@ logtrics generates metrics by parsing regular expression.
 It provides abstract APIs and lua binding to build parser and metrics generation logic
 
 ### Configuration
+[sample](./examples/config.toml)
 ```Usage:
 Usage:
   logtrics [flags]
@@ -29,7 +30,7 @@ Flags:
 
 ### Modes
 
-#### console
+#### Console
 In this mode, the log lines can be provided to the console prompt to debug the scripts.
 ```
 logtrics -m console -f examples/demo.lua --logging.level debug
@@ -49,7 +50,8 @@ logtrics -m tcp -f examples/demo.lua --logging.level debug --tcp.port 4003 --tcp
 ```
 send logs using `echo "hello \"World\"" | nc -c localhost 4003`
 
-### lua script
+### Lua Script
+[sample](./examples/scripts/logtrics.lua)
 ```lua
 logtrics {
 	name = "logtrics-example",
@@ -69,7 +71,6 @@ logtrics {
 }
 
 ```
-[sample](./examples/scripts/logtrics.lua)
 
 ### [TODO](./TODO.md)
 
