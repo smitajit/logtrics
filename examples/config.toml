@@ -1,5 +1,5 @@
-# application mode. Choices are console, udp
-mode = "console"
+# application mode. Choices are console, udp, tcp
+modes = ["console", "tcp", "udp"]
 # script file location
 scriptdir = "/etc/logtrics/scripts/"
 
@@ -23,12 +23,12 @@ scriptdir = "/etc/logtrics/scripts/"
   # type of logging. Choices are console, syslog
   type = "console"
 
-# tcp listener mode
-# [tcp]
-  # host = "127.0.0.1"
-  # port = 4003
+# TCP serve mode
+[tcp]
+  host = "127.0.0.1"
+  port = 4003
 
-# udp listener mode
-# [udp]
-  # host = "127.0.0.1"
-  # port = 4002
+# UDP listener mode
+[udp]
+  host = "127.0.0.1"
+  port = 4002

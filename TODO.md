@@ -4,4 +4,5 @@
 [ ] Prometheus APIs
 [ ] Aggregation APIs
 [ ] Persistence APIs
-[ ] Cron jobs
+[ ] Scheduler APIs
+[ ] Documentation
