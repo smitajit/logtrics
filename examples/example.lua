@@ -29,7 +29,7 @@ logtrics {
 
 	-- this callback function will be called for log line match based on the expression. ---
 	-- @source : fields contains all the metainfo ---
-	handler = function(event) 
+	handler = function(event)
 		local value = math.random(1,10)
 		info("fields are %v" , event)
 		-- if param1 == "world" then

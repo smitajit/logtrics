@@ -13,8 +13,8 @@ install: $(PREFIX)/bin/$(APP_BIN)
 clean:
 	rm -rf $(APP_BIN) coverage.out
 
-$(APP_BIN): $(SRC_FILES) ./cmd/main.go
-	@go build  -ldflags '-w -s -X main.BuildDate=$(shell date +%F)' -o $@ ./cmd/main.go
+$(APP_BIN): $(SRC_FILES) ./cmd/logtrics/main.go
+	@go build  -ldflags '-w -s -X main.BuildDate=$(shell date +%F)' -o $@ ./cmd/logtrics/main.go
 
 $(PREFIX)/bin/$(APP_BIN): $(APP_BIN)
 	install -p -D -m 0755 $< $@

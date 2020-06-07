@@ -6,7 +6,7 @@ scriptdir = "/etc/logtrics/scripts/"
 # single script file. Useful for debugging
 #scriptfile = "examples/demo.lua"
 
-# buffer size of log event channel 
+# buffer size of log event channel
 # buffersize = 0
 
 # graphite server configuration

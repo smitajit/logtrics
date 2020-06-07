@@ -13,7 +13,7 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - golint
+    # - golint
     - goprintffuncname
     - gosec
     - gosimple
@@ -26,7 +26,7 @@ linters:
     - scopelint
     - staticcheck
     - structcheck
-    - stylecheck
+    # - stylecheck
     - typecheck
     - unconvert
     - unparam

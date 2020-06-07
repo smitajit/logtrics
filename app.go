@@ -1,5 +1,4 @@
-// Package pkg is responsible for providing apis for logtrics
-package pkg
+package logtrics
 
 import (
 	"context"
@@ -10,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/pkg/config"
-	"github.com/smitajit/logtrics/pkg/reader"
+	"github.com/smitajit/logtrics/config"
+	"github.com/smitajit/logtrics/reader"
 )
 
 // Application represents this application
@@ -19,25 +18,25 @@ import (
 type Application struct {
 	readers []reader.LogReader
 	scripts []*Script
-	config  *config.Configuration
+	conf    *config.Configuration
 	logger  zerolog.Logger
 }
 
 //NewApplication returns a new Application instance
-func NewApplication(config *config.Configuration, readers ...reader.LogReader) (*Application, error) {
+func NewApplication(conf *config.Configuration, readers ...reader.LogReader) (*Application, error) {
 	app := &Application{
 		readers: readers,
 		scripts: make([]*Script, 0),
-		config:  config,
-		logger:  config.Logger("application"),
+		conf:    conf,
+		logger:  conf.Logger("application"),
 	}
 
-	files, err := scriptsFiles(config)
+	files, err := scripts(conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get script files")
 	}
 	for _, f := range files {
-		script, err := NewScript(f, config)
+		script, err := NewScript(f, conf)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to initialize app")
 		}
@@ -52,7 +51,7 @@ func NewApplication(config *config.Configuration, readers ...reader.LogReader) (
 func (app *Application) RunAsync(ctx context.Context) error {
 	chs := make([]chan reader.LogEvent, 0)
 	for _, s := range app.scripts {
-		c := make(chan reader.LogEvent, app.config.BufferSize)
+		c := make(chan reader.LogEvent, app.conf.BufferSize)
 		go s.RunAsync(ctx, c)
 		chs = append(chs, c)
 	}
@@ -85,21 +84,21 @@ func (app *Application) Run(ctx context.Context) error {
 	return app.run(ctx, f)
 }
 
-func (app *Application) run(ctx context.Context, f func(event reader.LogEvent)) error {
+func (app *Application) run(ctx context.Context, fn func(event reader.LogEvent)) error {
 	for _, reader := range app.readers {
-		if err := reader.Start(ctx, f); err != nil {
+		if err := reader.Start(ctx, fn); err != nil {
 			return errors.Wrap(err, "failed to start the readers")
 		}
 	}
 	return nil
 }
 
-func scriptsFiles(config *config.Configuration) ([]string, error) {
-	if config.ScriptFile != "" {
-		return []string{config.ScriptFile}, nil
+func scripts(conf *config.Configuration) ([]string, error) {
+	if conf.ScriptFile != "" {
+		return []string{conf.ScriptFile}, nil
 	}
 	scripts := make([]string, 0)
-	err := filepath.Walk(config.ScriptDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(conf.ScriptDir, func(path string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".lua") {
 			scripts = append(scripts, path)
 		}

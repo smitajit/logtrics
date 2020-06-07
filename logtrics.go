@@ -1,16 +1,15 @@
-package pkg
+package logtrics
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
-	"time"
 
+	"github.com/jinzhu/copier"
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/pkg/config"
-	"github.com/smitajit/logtrics/pkg/graphite"
-	"github.com/smitajit/logtrics/pkg/reader"
+	"github.com/smitajit/logtrics/config"
+	"github.com/smitajit/logtrics/graphite"
+	"github.com/smitajit/logtrics/reader"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -18,25 +17,18 @@ type (
 	// Logtric represents the logtrics instance configured in lua
 	// it stores the lua script states and provides runtime bindings to lua
 	Logtric struct {
-		name      string
-		state     *lua.LState
-		parser    Parser
-		handler   *lua.LFunction
-		config    *config.Configuration
-		graphite  *graphite.Graphite
-		logger    zerolog.Logger
-		scheduler *Scheduler
-	}
-
-	// Scheduler represents the scheduler config inside logtrics
-	Scheduler struct {
-		interval int
+		name     string
+		state    *lua.LState
+		parser   Parser
 		handler  *lua.LFunction
+		conf     *config.Configuration
+		graphite *graphite.Graphite
+		logger   zerolog.Logger
 	}
 )
 
 // NewLogtric returns a new instance of Logtric
-func NewLogtric(script string, config *config.Configuration, state *lua.LState, table *lua.LTable) (*Logtric, error) {
+func NewLogtric(script string, conf *config.Configuration, state *lua.LState, table *lua.LTable) (*Logtric, error) {
 	name := table.RawGet(lua.LString("name")).String()
 	if name == "" || name == "nil" {
 		name = "?"
@@ -58,33 +50,113 @@ func NewLogtric(script string, config *config.Configuration, state *lua.LState, 
 		return nil, fmt.Errorf("handler not found")
 	}
 
-	s := table.RawGet(lua.LString("scheduler"))
-	scheduler, err := scheduler(s)
-	if err != nil {
-		return nil, err
-	}
-
-	config, err = config.Merge(table)
+	merged, err := mergeConfig(conf, table)
 	if err != nil {
 		return nil, err
 	}
 
 	l := &Logtric{
-		name:      name,
-		state:     state,
-		config:    config,
-		handler:   handler,
-		parser:    parser,
-		scheduler: scheduler,
-		logger:    config.Logger(fmt.Sprintf("%s:[%s]", script, name)),
+		name:    name,
+		state:   state,
+		conf:    merged,
+		handler: handler,
+		parser:  parser,
+		logger:  conf.Logger(fmt.Sprintf("%s:[%s]", script, name)),
 	}
 
 	l.bindApis()
-
-	if l.scheduler != nil {
-		l.scheduler.Start()
-	}
 	return l, nil
+}
+
+func mergeConfig(c *config.Configuration, table *lua.LTable) (*config.Configuration, error) {
+	var (
+		merged = new(config.Configuration)
+		err    error
+	)
+	if err := copier.Copy(merged, c); err != nil {
+		return nil, err //TODO wrap may be?
+	}
+	table.ForEach(func(k lua.LValue, v lua.LValue) {
+		if err != nil {
+			return
+		}
+		switch k {
+		case lua.LString("handler"), lua.LString("parser"), lua.LString("name"), lua.LString("scheduler"):
+			//ignore
+		case lua.LString("graphite"):
+			if merged.Graphite == nil {
+				merged.Graphite = &config.Graphite{}
+			}
+			err = updateGraphiteConfig(merged.Graphite, v)
+		case lua.LString("logging"):
+			if merged.Logging == nil {
+				merged.Logging = &config.Logging{}
+			}
+			err = updateLogConfig(merged.Logging, v)
+		case lua.LString("expression"):
+			merged.Expression = v.String()
+		case lua.LString("sctriptfile"), lua.LString("scriptdir"), lua.LString("mode"), lua.LString("tcp"), lua.LString("udp"):
+			err = fmt.Errorf("modification is not supported for [%s]", k.String())
+		default:
+			err = fmt.Errorf("invalid key %s", k.String())
+		}
+	})
+	return merged, err
+}
+
+func updateGraphiteConfig(g *config.Graphite, v lua.LValue) error {
+	table, ok := v.(*lua.LTable)
+	if !ok {
+		return fmt.Errorf("invalid graphite configuration")
+	}
+	var err error
+	table.ForEach(func(k, v lua.LValue) {
+		if err != nil {
+			return
+		}
+		switch k {
+		case lua.LString("host"):
+			g.Host = v.String()
+		case lua.LString("port"):
+			g.Port, err = strconv.Atoi(v.String())
+			if err != nil {
+				return
+			}
+		case lua.LString("interval"):
+			g.Interval, err = strconv.Atoi(v.String())
+			if err != nil {
+				return
+			}
+		case lua.LString("debug"):
+			g.Debug, err = strconv.ParseBool(v.String())
+			if err != nil {
+				return
+			}
+		}
+	})
+	return err
+}
+func updateLogConfig(l *config.Logging, v lua.LValue) error {
+	table, ok := v.(*lua.LTable)
+	if !ok {
+		return fmt.Errorf("invalid logging configuration")
+	}
+	var err error
+	table.ForEach(func(k, v lua.LValue) {
+		if err != nil {
+			return
+		}
+		switch k {
+		case lua.LString("type"):
+			l.Type = v.String()
+		case lua.LString("level"):
+			l.Level = v.String()
+		default:
+			err = fmt.Errorf("invalid logging config")
+			return
+		}
+	})
+	return err
 }
 
 func (l *Logtric) bindApis() {
@@ -98,52 +170,6 @@ func (l *Logtric) bindApis() {
 
 	// binding graphite api
 	l.state.SetGlobal("graphite", l.state.NewFunction(l.LAPIGraphite))
-}
-
-// Start ...
-func (s *Scheduler) Start() {
-	ticker := time.NewTicker(time.Second * time.Duration(s.interval))
-	go func() {
-		for range ticker.C {
-			state := lua.NewState()
-			p := lua.P{
-				Fn:      s.handler,
-				NRet:    0,
-				Protect: true,
-			}
-			if err := state.CallByParam(p); err != nil {
-				fmt.Println(err)
-			}
-		}
-	}()
-}
-
-// TODO(smitajit) handle it properly
-func scheduler(v lua.LValue) (*Scheduler, error) {
-	table, ok := v.(*lua.LTable)
-	if !ok {
-		return nil, errors.New("invalid scheduler config")
-	}
-
-	i := table.RawGet(lua.LString("interval"))
-	in, ok := i.(lua.LNumber)
-	if !ok {
-		return nil, errors.New("invalid scheduler config, interval is wrong")
-	}
-	interval, err := strconv.Atoi(in.String())
-	if err != nil {
-		return nil, errors.New("invalid scheduler config, interval is wrong1")
-	}
-
-	h := table.RawGet(lua.LString("handler"))
-	handler, ok := h.(*lua.LFunction)
-	if !ok {
-		return nil, errors.New("invalid scheduler config, handler is wrong")
-	}
-	return &Scheduler{
-		interval: interval,
-		handler:  handler,
-	}, nil
 }
 
 // Run runs the Logtric instance
@@ -243,7 +269,7 @@ func (l *Logtric) LAPITrace(state *lua.LState) int {
 // LAPIGraphite is represents the lua binding for graphite() api call
 func (l *Logtric) LAPIGraphite(state *lua.LState) int {
 	if l.graphite == nil {
-		g, err := graphite.NewGraphite(l.config, state, l.logger)
+		g, err := graphite.NewGraphite(l.conf, state, l.logger)
 		if err != nil {
 			state.RaiseError(err.Error())
 		}

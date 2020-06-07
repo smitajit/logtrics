@@ -1,11 +1,11 @@
-package pkg
+package logtrics
 
 import (
 	"context"
 
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/pkg/config"
-	"github.com/smitajit/logtrics/pkg/reader"
+	"github.com/smitajit/logtrics/config"
+	"github.com/smitajit/logtrics/reader"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -14,18 +14,18 @@ type (
 	Script struct {
 		Path     string
 		logtrics []*Logtric
-		config   *config.Configuration
+		conf     *config.Configuration
 		logger   zerolog.Logger
 	}
 )
 
 // NewScript returns a new Script instance which represents a lua script file
-func NewScript(path string, config *config.Configuration) (*Script, error) {
+func NewScript(path string, conf *config.Configuration) (*Script, error) {
 	s := &Script{
 		Path:     path,
-		config:   config,
+		conf:     conf,
 		logtrics: make([]*Logtric, 0),
-		logger:   config.Logger(path),
+		logger:   conf.Logger(path),
 	}
 	state := lua.NewState()
 	state.SetGlobal("logtrics", state.NewFunction(s.LAPILogtric))
@@ -53,7 +53,7 @@ func (s *Script) RunAsync(ctx context.Context, c <-chan reader.LogEvent) {
 // Run runs the script
 // This is non blocking call
 func (s *Script) Run(ctx context.Context, event reader.LogEvent) {
-	logger := s.config.Logger(s.Path)
+	logger := s.conf.Logger(s.Path)
 	logger.Debug().Msgf("executing script")
 	for _, l := range s.logtrics {
 		if err := l.Run(ctx, event); err != nil {
@@ -66,7 +66,7 @@ func (s *Script) Run(ctx context.Context, event reader.LogEvent) {
 func (s *Script) LAPILogtric(state *lua.LState) int {
 	// parsing the lua script
 	table := state.ToTable(1)
-	l, err := NewLogtric(s.Path, s.config, state, table)
+	l, err := NewLogtric(s.Path, s.conf, state, table)
 	if err != nil {
 		state.RaiseError(err.Error())
 	}

@@ -14,6 +14,7 @@ require (
 	github.com/rs/zerolog v1.18.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.6.3
+	github.com/testcontainers/testcontainers-go v0.5.1
 	github.com/uber/jaeger-client-go v2.23.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb

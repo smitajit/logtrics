@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	goMetrics "github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
-	"github.com/smitajit/logtrics/pkg/config"
+	"github.com/smitajit/logtrics/config"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -21,7 +21,7 @@ type (
 	Graphite struct {
 		registry goMetrics.Registry
 		logger   zerolog.Logger
-		config   *config.Configuration
+		conf     *config.Configuration
 	}
 
 	// Counter represents counter metrics
@@ -51,11 +51,11 @@ type (
 
 // NewGraphite returns a new graphite instance
 // It starts the thread which published the metrics in regular interval (config.Graphite.Interval)
-func NewGraphite(config *config.Configuration, state *lua.LState, logger zerolog.Logger) (*Graphite, error) {
+func NewGraphite(conf *config.Configuration, state *lua.LState, logger zerolog.Logger) (*Graphite, error) {
 	var (
 		registry = goMetrics.NewRegistry()
-		interval = time.Second * time.Duration(config.Graphite.Interval)
-		address  = fmt.Sprintf("%s:%d", config.Graphite.Host, config.Graphite.Port)
+		interval = time.Second * time.Duration(conf.Graphite.Interval)
+		address  = fmt.Sprintf("%s:%d", conf.Graphite.Host, conf.Graphite.Port)
 	)
 
 	addr, err := net.ResolveTCPAddr("tcp", address)
@@ -67,17 +67,17 @@ func NewGraphite(config *config.Configuration, state *lua.LState, logger zerolog
 	c := graphite.Config{
 		Addr:          addr,
 		Registry:      registry,
-		FlushInterval: time.Duration(config.Graphite.Interval),
+		FlushInterval: time.Duration(conf.Graphite.Interval),
 		DurationUnit:  time.Second,
 		Percentiles:   []float64{0.5, 0.75, 0.95, 0.99, 0.999},
 	}
 
-	if config.Graphite.Debug {
+	if conf.Graphite.Debug {
 		logger.Debug().
-			Str("graphite.host", config.Graphite.Host).
-			Int("graphite.port", config.Graphite.Port).
-			Int("graphite.interval", config.Graphite.Interval).
-			Bool("graphite.debug", config.Graphite.Debug).
+			Str("graphite.host", conf.Graphite.Host).
+			Int("graphite.port", conf.Graphite.Port).
+			Int("graphite.interval", conf.Graphite.Interval).
+			Bool("graphite.debug", conf.Graphite.Debug).
 			Msg("graphite configuration")
 		go goMetrics.Log(registry, interval, log.New(logger, "metrics", log.Lmicroseconds))
 	}
@@ -89,7 +89,7 @@ func NewGraphite(config *config.Configuration, state *lua.LState, logger zerolog
 		}
 	}()
 	g := &Graphite{
-		config:   config,
+		conf:     conf,
 		logger:   logger,
 		registry: registry,
 	}
