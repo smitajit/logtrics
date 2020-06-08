@@ -1,7 +1,7 @@
 # logtrics
 
 logtrics provide a way to parse logs, to generate metrics, notify and more.
-It can read logs from multiple sources(console, udp, tcp). It also provides interfaces through lua script to configure and customize your logging tricks :P.
+It can read logs from multiple sources(console, UDP, TCP). It also provides interfaces through lua script to configure and customize your logging tricks :P
 
 ### Configuration
 
@@ -32,6 +32,10 @@ Flags:
 ```
 
 ### Modes
+	logtrics supports multiple mode to receive log line.
+* console - Mainly for debugging scripts
+* UDP/TCP - Receives logs using UDP/TCP socket. Mainly to be used with rsyslog [omfwd](https://www.rsyslog.com/doc/v8-stable/configuration/modules/omfwd.html)
+* filetail - Receives logs by tailing log file. (TODO)
 
 #### Console
 
