@@ -167,7 +167,7 @@ func (s *TCP) Start(ctx context.Context, cb ReadCallBack) error {
 	// Close the listener when the application closes.
 	s.logger.Debug().Msgf("TCP server started at [%s]", addr)
 	go func() {
-		defer l.Close()
+		defer func() { _ = l.Close() }()
 		for {
 			select {
 			case <-ctx.Done():
