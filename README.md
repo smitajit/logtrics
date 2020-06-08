@@ -32,10 +32,12 @@ Flags:
 ```
 
 ### Modes
-	logtrics supports multiple mode to receive log line.
-* console - Mainly for debugging scripts
-* UDP/TCP - Receives logs using UDP/TCP socket. Mainly to be used with rsyslog [omfwd](https://www.rsyslog.com/doc/v8-stable/configuration/modules/omfwd.html)
-* filetail - Receives logs by tailing log file. (TODO)
+
+    logtrics supports multiple mode to receive log line.
+
+- console - Mainly for debugging scripts
+- UDP/TCP - Receives logs using UDP/TCP socket. Mainly to be used with rsyslog [omfwd](https://www.rsyslog.com/doc/v8-stable/configuration/modules/omfwd.html)
+- filetail - Receives logs by tailing log file. (TODO)
 
 #### Console
 
