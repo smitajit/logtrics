@@ -19,7 +19,7 @@ logtrics {
 
 	-- supports RE2 (https://en.wikipedia.org/wiki/RE2_(software)) regex for matching and substring extraction ---
 	-- source, matched line and extracted substrings will be passed for process callback for metrics computation --
-	-- expression for hello "World". extracting word hello
+	-- expression for `hello "World"`. extracting word hello
 	parser = {
 		type = "re2",
 		expression = 'hello "(?P<first>[a-zA-z0-9]+)"',

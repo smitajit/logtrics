@@ -1,9 +1,12 @@
 # logtrics
-logtrics generates metrics by parsing regular expression.
-It provides abstract APIs and lua binding to build parser and metrics generation logic
+
+logtrics provide a way to parse logs, to generate metrics, notify and more.
+It can read logs from multiple sources(console, udp, tcp). It also provides interfaces through lua script to configure and customize your logging tricks :P.
 
 ### Configuration
+
 [sample](./examples/config.toml)
+
 ```Usage:
 Usage:
   logtrics [flags]
@@ -31,46 +34,55 @@ Flags:
 ### Modes
 
 #### Console
+
 In this mode, the log lines can be provided to the console prompt to debug the scripts.
+
 ```
-logtrics -m console -f examples/demo.lua --logging.level debug
+logtrics -m console -f examples/scripts/logtrics.lua --logging.level debug
 ```
 
 #### UDP
+
 In this mode, the log lines can be read from the UDP socket
+
 ```
-logtrics -m udp -f examples/demo.lua --logging.level debug --udp.port 4002 --udp.host localhost
+logtrics -m udp -f examples/scripts/logtrics.lua --logging.level debug --udp.port 4002 --udp.host localhost
 ```
+
 send logs using `echo "hello \"World\"" | nc -cu localhost 4002`
 
 #### TCP
+
 In this mode, the log lines can be read from the TCP socket
+
 ```
-logtrics -m tcp -f examples/demo.lua --logging.level debug --tcp.port 4003 --tcp.host localhost
+logtrics -m tcp -f examples/scripts/logtrics.lua --logging.level debug --tcp.port 4003 --tcp.host localhost
 ```
+
 send logs using `echo "hello \"World\"" | nc -c localhost 4003`
 
 ### Lua Script
+
 [sample](./examples/scripts/logtrics.lua)
+
 ```lua
 logtrics {
 	name = "logtrics-example",
 	parser = {
 		type = "re2",
-		-- expression for hello "World". extracting word hello
-		expression = 'hello "(?P<first>[a-zA-z0-9]+)"', -- to parse hello "world"
+		-- expression for `hello "World"`. extracting word hello
+		expression = 'hello "(?P<first>[a-zA-z0-9]+)"',
 	},
-	handler = function(event)
-		info("fields are %v" , event)
-		-- graphite().counter(prefix .. ".counter.inc.value").inc(value)
-		-- graphite().counter(prefix .. ".counter.dec.value").dec(value)
-		-- graphite().timer(prefix .. ".timer.value").update(value)
-		-- graphite().gauge(prefix .. ".gauge.value").update(value)
-		-- graphite().meter(prefix .. ".meter.value").mark(value)
+	handler = function(fields)
+		info("fields are %v" , fields)
+		-- graphite().counter("demo.counter.inc.value").inc(value)
+		-- graphite().counter("demo.counter.dec.value").dec(value)
+		-- graphite().timer("demo.timer.value").update(value)
+		-- graphite().gauge("demo.gauge.value").update(value)
+		-- graphite().meter("demo.meter.value").mark(value)
 		end,
 }
 
 ```
 
 ### [TODO](./TODO.md)
-
